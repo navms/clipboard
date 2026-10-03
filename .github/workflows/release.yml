@@ -59,37 +59,50 @@ jobs:
       # when the secrets are present. Without them the build still runs and the
       # DMG is ad-hoc signed -- see SECURITY.md for why that matters.
       #
+      # ---------------------------------------------------------------------
+      # Code signing secrets, forwarded only when they actually exist.
+      #
+      # This indirection is load-bearing. `${{ secrets.APPLE_CERTIFICATE }}`
+      # expands to an *empty string* when the secret is not configured, it does
+      # not vanish — and the Tauri bundler reads "set but empty" as "there is a
+      # certificate to import", runs `security import` on nothing, and aborts:
+      #
+      #   security: SecKeychainItemImport: One or more parameters passed to a
+      #   function were not valid.
+      #   failed to bundle project: failed codesign application: failed to run
+      #   command security import
+      #
+      # That lands ~5 minutes into the run, after the release compile, which is
+      # an expensive place to learn the repository has no certificate. Writing
+      # the variables from a shell step means an unconfigured repository simply
+      # never defines them, and the bundler falls back to ad-hoc signing.
+      #
+      # Repository secrets for a signed build:
+      #   APPLE_CERTIFICATE           base64 of the .p12
+      #   APPLE_CERTIFICATE_PASSWORD  password for that .p12
+      #
       # Create the base64 secret with:
       #   base64 -i ~/keys/clipboard.p12 | pbcopy
       # ---------------------------------------------------------------------
-      - name: Report signing mode
+      - name: Forward signing secrets, if any
         env:
-          HAS_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          if [ "${HAS_CERT}" = "true" ]; then
-            echo "Signing certificate found -- producing a signed DMG."
+          if [ -n "${CERT}" ]; then
+            echo "Signing certificate present -- producing a signed DMG."
+            echo "APPLE_CERTIFICATE=${CERT}" >> "${GITHUB_ENV}"
+            echo "APPLE_CERTIFICATE_PASSWORD=${CERT_PASSWORD}" >> "${GITHUB_ENV}"
           else
-            echo "::notice title=Unsigned build::No APPLE_CERTIFICATE secret found. The DMG will be ad-hoc signed, and the Accessibility permission will not survive a reinstall. See SECURITY.md."
+            echo "::notice title=Unsigned build::No APPLE_CERTIFICATE secret configured. The DMG will be ad-hoc signed, so the Accessibility permission will not survive a reinstall. See SECURITY.md."
           fi
 
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        # APPLE_SIGNING_IDENTITY is deliberately *absent*, not set to ''.
-        #
-        # An empty value is not the same as unset here: the bundler treats a
-        # present-but-empty identity as "sign with this identity", attempts
-        # `security import` with nothing to import, and aborts the bundle with
-        # `SecKeychainItemImport: One or more parameters passed to a function
-        # were not valid` — after the 4m36s release compile, which is a
-        # spectacularly late place to find out. Leaving the variable out lets
-        # tauri-action fall back to ad-hoc signing when there is no certificate.
-        #
-        # Set it only when the keychain holds several identities and the build
-        # needs to be told which one to use.
+          # APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD come from the step
+          # above, via GITHUB_ENV, and are deliberately not listed here.
         with:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: Clipboard History ${{ github.event.inputs.tag || github.ref_name }}
