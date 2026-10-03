@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.1.1] — 2026-10-03
+
+### Fixed
+
+- **`scripts/reinstall.sh` reported an Accessibility grant on a machine that
+  had none.** Without the permission the app logs one line containing both
+  "armed" and "inert", and the script tested for "armed" first — so it matched
+  the untrusted wording, printed "Accessibility granted", and never reached the
+  branch that would have said otherwise. The app now prints one machine-readable
+  `[hotkey] accessibility=granted|denied|unavailable` line at startup and the
+  script matches only that, so the untrusted and unavailable cases are told
+  apart from a real grant. A "could not install the monitors at all" case is
+  reported separately, because that one is not a permissions problem.
+
+### Changed
+
+- Releases are now published when the tag is pushed, instead of being staged as
+  a draft that has to be published by hand. `ci.yml` already builds the unsigned
+  bundle on every push, so the draft only added a step that was easy to forget.
+
 ## [0.1.0] — 2026-10-03
 
 First public release.
@@ -91,5 +111,6 @@ First public release.
   Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
   `tauri`, `wry`, `plist` and others.
 
-[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/navms/clipboard/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/navms/clipboard/releases/tag/v0.1.0

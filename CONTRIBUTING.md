@@ -154,6 +154,49 @@ either ecosystem:
   dependencies are still shipped inside the binary.
 - Note feature flags that exist purely to trim the bundle.
 
+## Releasing
+
+`release.yml` runs on any `v*` tag and publishes a GitHub Release automatically
+(`releaseDraft: false`). The build takes about six minutes, most of it a cold
+release compile.
+
+**The tag and the version numbers must agree, or the artifact lies.** The
+release is named after the git tag, but Tauri names the `.dmg` and `.app.tar.gz`
+after `version` in `src-tauri/tauri.conf.json`. Tag `v0.1.1` without bumping that
+field and you get a `v0.1.1` release containing a file called
+`Clipboard.History_0.1.0_aarch64.dmg`.
+
+```sh
+# 1. Bump the version in all three places. `pnpm tauri build` reads the
+#    tauri.conf.json one, so that is the one that names the artifact.
+#      package.json
+#      src-tauri/Cargo.toml
+#      src-tauri/tauri.conf.json
+#    A plain build refreshes Cargo.lock to match.
+cargo check --manifest-path src-tauri/Cargo.toml
+
+# 2. Move whatever sits under [Unreleased] in CHANGELOG.md into a new version
+#    section, and add the compare links at the bottom of the file.
+
+# 3. Commit, land on main, wait for CI to go green.
+
+# 4. Tag the commit that actually carries the version bump.
+git tag -a v0.1.1 -m "Clipboard History 0.1.1"
+git push origin v0.1.1
+
+# 5. When the run finishes, open the release and check the asset names carry
+#    the same version as the tag. This is the only place the mismatch above
+#    shows up.
+```
+
+Two things to know about the output:
+
+- **It is ad-hoc signed and not notarized.** The first launch needs
+  right-click → Open, or `xattr -dr com.apple.quarantine`. See
+  [SECURITY.md](SECURITY.md).
+- **No updater is configured**, so a new release does not appear on anyone's
+  machine automatically.
+
 ## Reporting bugs
 
 Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml). A good

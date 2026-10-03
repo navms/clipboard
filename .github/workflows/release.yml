@@ -123,7 +123,12 @@ jobs:
             Double-tap-Option and auto-paste additionally require the
             Accessibility permission: System Settings → Privacy & Security →
             Accessibility → enable **Clipboard History**.
-          releaseDraft: true
+          # Publish on tag push rather than staging a draft. `ci.yml` runs a
+          # `Bundle (unsigned smoke build)` job on every push and PR, so the
+          # .app is already proven to build before a tag ever reaches this
+          # workflow, and a draft only adds a step that has to be remembered --
+          # easy to mistake "tagged" for "shipped".
+          releaseDraft: false
           prerelease: false
           args: --target aarch64-apple-darwin
 

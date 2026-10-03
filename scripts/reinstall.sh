@@ -133,13 +133,22 @@ if ! pgrep -f "${TARGET}/Contents/MacOS/" >/dev/null; then
   exit 1
 fi
 
-if grep -q "armed" "${LOG}"; then
+# Matched on the token, never on the prose. The app used to be checked for the
+# word "armed", but the untrusted wording says the monitors are "armed locally"
+# and "inert" in the same sentence -- so the granted test matched a machine
+# with no Accessibility grant, and the branch below it was unreachable. The app
+# prints exactly one `accessibility=<state>` line at startup; see
+# `Trust::token` in src-tauri/src/hotkey.rs.
+if grep -q "accessibility=granted" "${LOG}"; then
   echo "   OK  double-tap Option is ready (Accessibility granted)"
-elif grep -q "inert" "${LOG}"; then
+elif grep -q "accessibility=denied" "${LOG}"; then
   echo "   NOTE Accessibility not granted yet -- double-tap Option and"
   echo "        auto-paste stay disabled."
   echo "        System Settings > Privacy & Security > Accessibility, then tick"
   echo "        \"${APP_NAME}\". Granting it takes effect without a restart."
+elif grep -q "accessibility=unavailable" "${LOG}"; then
+  echo "   WARN the double-tap Option monitors could not be installed at all."
+  echo "        This one is not a permissions problem; see ${LOG}"
 else
   echo "   NOTE could not determine the permission state; see ${LOG}"
 fi

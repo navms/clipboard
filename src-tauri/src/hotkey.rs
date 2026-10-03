@@ -74,13 +74,57 @@ pub fn register(app: &AppHandle, state: &Arc<AppState>) {
         return;
     }
 
-    arm(app, state);
+    let trust = arm(app, state);
+
+    // The one line in the launch log that is written to be read by something
+    // other than a person. Printed here rather than in `arm` because `arm` runs
+    // a second time when the grant is granted mid-session, and a log holding
+    // both `denied` and `granted` would leave the script's outcome up to the
+    // order it happens to test its greps in.
+    println!("[hotkey] {}", trust.token());
+
     watch_trust(app.clone(), state.clone());
+}
+
+/// What the double-tap monitors actually ended up able to do.
+///
+/// This exists because the two failure modes read alike in prose. The untrusted
+/// line says the monitors are "armed locally" and "inert" in the same breath, so
+/// anything matching on the word "armed" cannot tell them apart -- which is
+/// exactly how `scripts/reinstall.sh` came to report an Accessibility grant for
+/// a machine that has none.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Trust {
+    /// Both monitors installed and the global one can hear.
+    Granted,
+    /// Only the local monitor installed; the global one stays deaf.
+    Denied,
+    /// Neither monitor installed. Not a permissions question.
+    Unavailable,
+}
+
+impl Trust {
+    /// The machine-readable half of the startup report: one word, printed once.
+    ///
+    /// This is a contract with `scripts/reinstall.sh`, which greps the launch log
+    /// for these exact strings and tells the user which of the three states they
+    /// are in. Rewording it here silently disables that script's check, so it
+    /// stays fixed even though the prose around it is free to change.
+    const fn token(self) -> &'static str {
+        match self {
+            Trust::Granted => "accessibility=granted",
+            Trust::Denied => "accessibility=denied",
+            Trust::Unavailable => "accessibility=unavailable",
+        }
+    }
 }
 
 /// Install (or re-install) the double-tap monitors. Must run on the main
 /// thread: this is AppKit, and so are the handlers it will call.
-fn arm(app: &AppHandle, state: &Arc<AppState>) {
+///
+/// Returns what actually got installed, which is not the same question as
+/// whether the Accessibility grant is present -- see [`Trust`].
+fn arm(app: &AppHandle, state: &Arc<AppState>) -> Trust {
     let mut installed = Vec::with_capacity(2);
     installed.extend(install_global(app, state));
     installed.extend(install_local(app, state));
@@ -90,7 +134,7 @@ fn arm(app: &AppHandle, state: &Arc<AppState>) {
             "[hotkey] could not install the double-tap ⌥ monitors — \
              grant Accessibility to enable them"
         );
-        return;
+        return Trust::Unavailable;
     }
 
     let retired = std::mem::replace(&mut *MONITOR.lock(), installed);
@@ -106,11 +150,13 @@ fn arm(app: &AppHandle, state: &Arc<AppState>) {
     // so here beats debugging a deaf listener.
     if crate::paste::is_trusted() {
         println!("[hotkey] double-tap ⌥ armed (global + local)");
+        Trust::Granted
     } else {
         eprintln!(
             "[hotkey] double-tap ⌥ armed locally; the global monitor stays \
              inert until Accessibility is granted"
         );
+        Trust::Denied
     }
 }
 
@@ -303,4 +349,37 @@ fn lone_option(raw: usize) -> bool {
         | NSEventModifierFlags::Help.0;
 
     independent & !irrelevant == NSEventModifierFlags::Option.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Trust;
+
+    /// The tokens are a wire format with a consumer on the other side, so they
+    /// are pinned exactly. Renaming one does not fail the build -- it just
+    /// leaves `scripts/reinstall.sh` quietly checking for a word that never
+    /// appears, and reporting "could not determine the permission state" on
+    /// every run.
+    #[test]
+    fn trust_tokens_are_the_words_the_script_greps_for() {
+        assert_eq!(Trust::Granted.token(), "accessibility=granted");
+        assert_eq!(Trust::Denied.token(), "accessibility=denied");
+        assert_eq!(Trust::Unavailable.token(), "accessibility=unavailable");
+    }
+
+    /// ...and they have to stay mutually exclusive, which is the property the
+    /// script's bug actually hinged on. Two states sharing a word is what let it
+    /// read a grant out of an ungranted log, because the untrusted wording
+    /// contains both "armed" and "inert" and the granted check ran first.
+    #[test]
+    fn trust_tokens_do_not_contain_each_other() {
+        let all = [Trust::Granted, Trust::Denied, Trust::Unavailable];
+
+        for (i, a) in all.iter().enumerate() {
+            for b in &all[i + 1..] {
+                assert!(!a.token().contains(b.token()), "{a:?} contains {b:?}");
+                assert!(!b.token().contains(a.token()), "{b:?} contains {a:?}");
+            }
+        }
+    }
 }
