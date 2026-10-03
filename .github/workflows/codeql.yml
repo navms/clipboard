@@ -1,0 +1,40 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Weekly, Monday 03:17 UTC. An arbitrary minute avoids the top-of-hour
+    # rush that GitHub's scheduled workflows land in.
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [rust, javascript-typescript]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Clipboard History reaches the network through the webview only;
+          # build-mode is the right trade-off for a desktop app of this size.
+          build-mode: ${{ matrix.language == 'javascript-typescript' && 'none' || 'build' }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

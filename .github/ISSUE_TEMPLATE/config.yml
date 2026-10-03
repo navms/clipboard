@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/navms/clipboard/discussions
+    about: Ask how to use the app, or propose an idea without filing a formal issue.
+  - name: Security vulnerability
+    url: https://github.com/navms/clipboard/security/advisories/new
+    about: Report privately. Please do not open a public issue for security problems.
+  - name: Accessibility permission is not working
+    url: https://github.com/navms/clipboard/blob/main/README.md#accessibility-permission
+    about: The most common "the app is unresponsive" cause — the grant is bound to the code signature and can lapse after a rebuild.

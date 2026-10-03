@@ -1,0 +1,121 @@
+name: Release
+
+# Tag-driven. `git tag v0.1.5 && git push origin v0.1.5` produces the DMG and
+# publishes it on the Releases page.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build a release for'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish macOS DMG
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: release-${{ github.ref_name }}
+
+      - name: Install Tauri system dependencies
+        run: |
+          brew install \
+            webkit2gtk \
+            javascriptcoregtk \
+            libappindicator \
+            librsvg
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ---------------------------------------------------------------------
+      # Code signing
+      #
+      # Repository secrets for a signed release:
+      #   APPLE_CERTIFICATE            base64 of the .p12 (see note below)
+      #   APPLE_CERTIFICATE_PASSWORD    password for that .p12
+      #
+      # tauri-action imports the .p12 into a temporary keychain itself and reads
+      # APPLE_SIGNING_IDENTITY to pick the identity, so no extra shell is needed
+      # when the secrets are present. Without them the build still runs and the
+      # DMG is ad-hoc signed -- see SECURITY.md for why that matters.
+      #
+      # Create the base64 secret with:
+      #   base64 -i ~/keys/clipboard.p12 | pbcopy
+      # ---------------------------------------------------------------------
+      - name: Report signing mode
+        env:
+          HAS_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        run: |
+          if [ "${HAS_CERT}" = "true" ]; then
+            echo "Signing certificate found -- producing a signed DMG."
+          else
+            echo "::notice title=Unsigned build::No APPLE_CERTIFICATE secret found. The DMG will be ad-hoc signed, and the Accessibility permission will not survive a reinstall. See SECURITY.md."
+          fi
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # Left empty on purpose: tauri-action auto-detects the identity from
+          # the imported certificate. Set it only if you have several
+          # identities in the keychain and need to disambiguate.
+          APPLE_SIGNING_IDENTITY: ''
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: Clipboard History ${{ github.event.inputs.tag || github.ref_name }}
+          releaseBody: |
+            ## Clipboard History ${{ github.event.inputs.tag || github.ref_name }}
+
+            Apple Silicon (arm64) build. See the [README](https://github.com/navms/clipboard#readme)
+            for install instructions and the Accessibility permission setup.
+
+            ### First launch
+
+            This build is code-signed but **not notarized**, so Gatekeeper will
+            stop it on the first open. Choose one:
+
+            - Right-click the app → **Open** → **Open**, or
+            - run `xattr -dr com.apple.quarantine "/Applications/Clipboard History.app"`
+
+            Double-tap-Option and auto-paste additionally require the
+            Accessibility permission: System Settings → Privacy & Security →
+            Accessibility → enable **Clipboard History**.
+          releaseDraft: true
+          prerelease: false
+          args: --target aarch64-apple-darwin
+
+      # ---------------------------------------------------------------------
+      # Notarization — disabled.
+      #
+      # Requires a paid Apple Developer Program membership and a Developer ID
+      # Application certificate; an Apple Development certificate cannot
+      # notarize. When you have one, add repository secrets
+      #   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+      # and set NOTARIZE: 'true' in the `tauri-action` step above.
+      # ---------------------------------------------------------------------

@@ -1,0 +1,105 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+
+        **Before you file:** check whether the app simply lost its Accessibility
+        permission. That grant is bound to the app's code signature, so it can
+        lapse after a rebuild. System Settings → Privacy & Security →
+        Accessibility → re-enable **Clipboard History**. Double-tap-Option and
+        auto-paste both silently stop working when it lapses.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I have re-checked the Accessibility permission and the problem persists
+          required: true
+        - label: I have checked the [open issues](https://github.com/navms/clipboard/issues) for duplicates
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe, and what did you expect instead?
+      placeholder: |
+        Expected: pressing ⌥⌘V opens the panel with the last 5 copies.
+        Actual: nothing happens; the tray icon still responds.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Copy some text in Chrome
+        2. Switch to VS Code
+        3. Press ⌥⌘V
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: |
+        Anything from `/tmp/clipboard-reinstall.log`, or from running the app
+        binary directly. Drag files here, or paste a fenced code block.
+      render: shell
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area is this in?
+      multiple: true
+      options:
+        - Capturing / clipboard watcher
+        - History list, search, or filters
+        - Detail pane / previews
+        - Pasting into another app
+        - Global hotkey / double-tap-Option
+        - Tray icon / menu
+        - Themes
+        - Settings / launch at login
+        - Build / installation
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: v0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: macOS version
+      placeholder: 26.6.2
+    validations:
+      required: true
+
+  - type: input
+    id: arch
+    attributes:
+      label: Chip
+      description: This app is arm64-only. Please confirm.
+      placeholder: Apple Silicon (arm64)
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else?
+      description: Screenshots or a short screen recording help a lot for UI bugs.

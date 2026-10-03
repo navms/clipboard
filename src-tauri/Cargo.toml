@@ -1,0 +1,82 @@
+[package]
+name = "clipboard"
+version = "0.1.0"
+description = "Clipboard history for macOS"
+authors = ["hejin"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "clipboard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [
+    "macos-private-api",
+    "tray-icon",
+    "image-png",
+    "protocol-asset",
+] }
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+# Rust-side persistence: captures are written from the watcher's native
+# callback thread, so a synchronous single-writer connection beats the async
+# plugin (see docs/clipboard-tech-design.md Section 2.1).
+rusqlite = { version = "0.40", features = ["bundled"] }
+blake3 = "1"
+
+# Clipboard watching + multi-format reads (text / html / image / files).
+clipboard-rs = { version = "0.3.5", features = ["image"] }
+
+image = "0.25"
+parking_lot = "0.12"
+base64 = "0.22"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+# `block2` is what lets us hand AppKit a Rust closure; the double-tap Option
+# listener is a global event monitor, and those are block-based.
+# `NSEvent` / `NSRunningApplication` cover the monitor itself and bringing
+# the paste target back to the front.
+objc2-app-kit = { version = "0.3", features = [
+    "block2",
+    "NSEvent",
+    "NSRunningApplication",
+    "NSWorkspace",
+    "NSApplication",
+] }
+objc2-foundation = "0.3"
+# Synthesising Cmd+V into the target app, the other half of "Paste to X", and,
+# since tao's own monitor/cursor API mixes coordinate spaces, reading the
+# display rectangles and the mouse position for the panel's placement.
+objc2-core-graphics = { version = "0.3", features = [
+    "CGEvent",
+    "CGEventSource",
+    "CGEventTypes",
+    "CGRemoteOperation",
+    "CGDirectDisplay",
+    "CGError",
+] }
+block2 = "0.6"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref — a new push makes the in-flight one
+# pointless, and macOS runners are the slowest here.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (typecheck + build)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck and build
+        # `pnpm build` is `tsc && vite build`, so a type error fails the build.
+        run: pnpm build
+
+  rust:
+    name: Rust (fmt + clippy + test)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # macOS needs the system frameworks Tauri links against.
+      - name: Install Tauri system dependencies
+        run: |
+          brew install \
+            webkit2gtk \
+            javascriptcoregtk \
+            libappindicator \
+            librsvg
+
+      - name: Check formatting
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      # -D warnings: a single lint is a failure. Keep it that way.
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        working-directory: src-tauri
+        run: cargo test
+
+  build:
+    name: Bundle (unsigned smoke build)
+    runs-on: macos-15
+    needs: [frontend, rust]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Tauri system dependencies
+        run: |
+          brew install \
+            webkit2gtk \
+            javascriptcoregtk \
+            libappindicator \
+            librsvg
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Proves the bundle actually assembles, without needing a certificate.
+      # The app bundle is uploaded so a failure can be inspected locally.
+      - name: Build (ad-hoc, app only)
+        run: pnpm tauri build --bundles app
+
+      - name: Verify the app bundle exists
+        run: |
+          APP="src-tauri/target/release/bundle/macos/Clipboard History.app"
+          if [ ! -d "$APP" ]; then
+            echo "FAIL no bundle at $APP"
+            ls -R src-tauri/target/release/bundle || true
+            exit 1
+          fi
+          echo "OK  $APP"
+          du -sh "$APP"
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClipboardHistory-arm64-adhoc
+          path: src-tauri/target/release/bundle/macos/Clipboard History.app
+          retention-days: 14

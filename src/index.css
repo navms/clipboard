@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Dark mode is class-driven so the panel can follow the system theme
+ * *or* be forced from the in-app command menu / ?theme= query param.
+ * ------------------------------------------------------------------ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ *
+ * Semantic tokens for the panel palette.
+ * Light: near-white chrome, #E8E8E8 selection pill, #3366FF accent.
+ * Dark:  #1F1F21 chrome, #3A3A3D selection pill, cool-blue accent.
+ * ------------------------------------------------------------------ */
+:root {
+  --rc-app: #ffffff;
+  --rc-panel: #ffffff;
+  --rc-sidebar: #fbfbfc;
+  --rc-selected: #e8e8e8;
+  --rc-hover: #f1f1f2;
+  --rc-ink: #1c1c1e;
+  --rc-muted: #75757a;
+  --rc-faint: #a2a2a8;
+  --rc-divider: #ededed;
+  --rc-line: #e0e0e3;
+  --rc-accent: #3366ff;
+  /* Solid chip fill: the keycaps have no outline, the fill alone carries
+   * them. Measured at 24x21 CSS, #E8E8E8. */
+  --rc-keycap: #e8e8e8;
+  /* Segmented control (the History / Pinned rail tabs): a recessed track with
+   * a raised chip on the active segment. */
+  --rc-seg-track: #f1f1f2;
+  --rc-seg-active: #ffffff;
+  --rc-panel-ring: rgba(0, 0, 0, 0.06);
+  --rc-panel-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.16);
+  --rc-menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.dark {
+  --rc-app: #1f1f21;
+  --rc-panel: #2a2a2d;
+  --rc-sidebar: #232325;
+  --rc-selected: #3a3a3d;
+  --rc-hover: #2f2f32;
+  --rc-ink: #f2f2f4;
+  --rc-muted: #8e8e93;
+  --rc-faint: #6f6f75;
+  --rc-divider: #2e2e31;
+  --rc-line: #3a3a3d;
+  --rc-accent: #4c7dff;
+  --rc-keycap: #363639;
+  --rc-seg-track: #26262a;
+  --rc-seg-active: #3a3a3d;
+  --rc-panel-ring: rgba(255, 255, 255, 0.06);
+  --rc-panel-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.55);
+  --rc-menu-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+@theme inline {
+  --color-app: var(--rc-app);
+  --color-panel: var(--rc-panel);
+  --color-sidebar: var(--rc-sidebar);
+  --color-selected: var(--rc-selected);
+  --color-hover: var(--rc-hover);
+  --color-ink: var(--rc-ink);
+  --color-muted: var(--rc-muted);
+  --color-faint: var(--rc-faint);
+  --color-divider: var(--rc-divider);
+  --color-line: var(--rc-line);
+  --color-accent: var(--rc-accent);
+  --color-keycap: var(--rc-keycap);
+  --color-seg-track: var(--rc-seg-track);
+  --color-seg-active: var(--rc-seg-active);
+  /* Was missing here, so `ring-panel-ring` resolved to nothing and the
+   * `ring-1` in Shell / ActionsMenu fell back to `currentcolor` at full
+   * strength — a near-black hairline instead of a 6% wash. The token existed
+   * in :root and `.dark` all along; only the Tailwind-facing name was
+   * missing, and a utility that matches no theme entry is emitted no CSS. */
+  --color-panel-ring: var(--rc-panel-ring);
+
+  --shadow-panel: var(--rc-panel-shadow);
+  --shadow-menu: var(--rc-menu-shadow);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
+    "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    /* This is a fixed-size app surface, not a document. Nothing outside a
+       ScrollArea should scroll, and hitting the end of a list must not chain
+       out to the window and rubber-band the whole panel. */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    /* Preview backdrop: only visible in a browser, never inside the
+       transparent Tauri window (see .is-tauri below). */
+    background: #c9c9ce;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  html.is-tauri,
+  html.is-tauri body {
+    background: transparent;
+  }
+
+  /* No text selection / rubber-banding inside an app-chrome surface. */
+  .is-tauri body {
+    user-select: none;
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--rc-accent);
+    outline-offset: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /*
+   * Deliberately NO custom scrollbar styling in this file.
+   *
+   * Any of `scrollbar-width`, `scrollbar-color` or `::-webkit-scrollbar`
+   * demotes macOS from its native *overlay* scroller to a permanent *classic*
+   * one. The overlay fades out when scrolling stops and never steals layout
+   * width; the classic variant parks an 11px grey bar on the rail forever,
+   * which reads as a chunky second divider and does not belong here. Let the
+   * platform draw its own scrollbars.
+   */
+
+  .animate-pop {
+    animation: rc-pop 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-fade {
+    animation: rc-fade 140ms ease-out;
+  }
+}
+
+@keyframes rc-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rc-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

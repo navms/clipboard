@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Clipboard History is a menu-bar utility: no Dock tile, no Cmd-Tab
+	     entry. The panel is reached from the tray icon or from ⌥⌘V.
+
+	     Tauri's bundler picks this file up on its own and merges it into the
+	     generated Info.plist -- there is no build.rs step moving it around.
+	     See MacConfig.infoPlist in Tauri's config schema.
+
+	     `dev` has no bundle to read this from, so lib.rs makes the same
+	     request at runtime, deferred past tao's one-second dock-hide guard. -->
+	<key>LSUIElement</key>
+	<true/>
+</dict>
+</plist>

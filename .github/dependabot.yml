@@ -1,0 +1,42 @@
+version: 2
+
+updates:
+  # Rust dependencies (src-tauri/Cargo.toml)
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'build(cargo)'
+    labels: [dependencies, rust]
+    groups:
+      # Patch bumps of the same crate collapse into one PR.
+      rust-patches:
+        patterns: ['*']
+        update-types: [patch]
+
+  # Frontend packages
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'build(deps)'
+    labels: [dependencies, frontend]
+    groups:
+      frontend-patches:
+        patterns: ['*']
+        update-types: [patch]
+
+  # GitHub Actions themselves
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'ci'
+    labels: [dependencies, ci]

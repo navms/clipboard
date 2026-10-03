@@ -1,0 +1,55 @@
+name: Feature request
+description: Suggest an idea or improvement
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        Describe the problem you have. What are you trying to do that is hard
+        or impossible today? Describing the problem is more useful than
+        describing a solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you would like to happen. Sketch it if that helps.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What have you tried? Including workarounds you currently live with.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this touch?
+      multiple: true
+      options:
+        - Capturing / clipboard watcher
+        - History list, search, or filters
+        - Detail pane / previews
+        - Pasting into another app
+        - Global hotkey / double-tap-Option
+        - Tray icon / menu
+        - Themes / appearance
+        - Settings
+        - Developer experience / build
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives_tools
+    attributes:
+      label: Are there existing apps that solve this well?
+      description: |
+        If another clipboard manager handles your use case better, naming it
+        helps us understand the gap.
