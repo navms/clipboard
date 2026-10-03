@@ -15,6 +15,18 @@ First public release.
 
 ### Added
 
+**Notes** — a per-entry line of your own text
+
+- Attach a note to any history entry, edited in place or with `Cmd+D`, saved
+  with `Cmd+Return`. `Escape` cancels.
+- Notes are searchable alongside titles, so an entry can be found by why you
+  kept it rather than by what it contained.
+- A pencil mark in the list shows which entries have one. Deliberately an icon
+  rather than a text line: the list is virtualised against a fixed 40px row
+  height, and showing the note would make row height depend on content.
+- Re-copying the same content does not clobber the note — the dedupe path
+  touches only the two timestamps, and a test pins that behaviour.
+
 **Clipboard capture**
 
 - Background watcher on the system pasteboard, with a dedicated persistence
@@ -64,11 +76,20 @@ First public release.
 ### Notes
 
 - Apple Silicon (arm64) only. Intel Macs are not supported.
+- No `LSMinimumSystemVersion` is set, so macOS decides the effective floor.
+  Treat the target as "a recent macOS on Apple Silicon".
 - Release builds are code-signed but not notarized, so first launch requires
   right-click → Open, or clearing the quarantine attribute.
 - Double-tap-Option and auto-paste require the Accessibility permission, which
   is bound to the app's designated requirement — see
   [SECURITY.md](SECURITY.md#security-relevant-design-notes).
+
+### Removed
+
+- The `base64` dependency. It had no call sites; removing it avoids shipping
+  0.23's default-on `simd-unsafe` AVX2/NEON kernels for a crate never invoked.
+  Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
+  `tauri`, `wry`, `plist` and others.
 
 [Unreleased]: https://github.com/navms/clipboard/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/navms/clipboard/releases/tag/v0.1.0
