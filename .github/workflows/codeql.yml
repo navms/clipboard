@@ -39,26 +39,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Order matters and is the opposite of what it looks like: `init` must run
-      # before `autobuild`, because the build is what *creates* the database
-      # the build-mode declares. Reversed, autobuild reports "Config file could
-      # not be found ... Has the 'init' action been called?" and the job fails
-      # on a step that looks fine in isolation.
+      # Both languages use `build-mode: none`.
       #
-      # Rust is compiled, so it needs a real build for the extractor to trace
-      # data flow through. The supported build modes are none / autobuild /
-      # manual — there is no `build`, and passing one fails `init` outright.
-      # `autobuild` infers the build system and runs cargo build for us, which
-      # is why this needs no custom build steps.
+      # Rust does not accept `autobuild` — the action fails `init` outright with
+      # "Rust does not support the autobuild build mode. Please try one of the
+      # following build modes instead: none", and `build` is not a valid value
+      # at all (the modes are none / autobuild / manual). That leaves `none`,
+      # which runs the standalone extractor over the sources without tracing a
+      # build. The trade-off is real but acceptable here: it is less precise
+      # for cross-crate data flow, and in exchange the analysis needs no toolchain
+      # and no dependency install, so it cannot break when a crate bumps.
+      #
+      # `manual` is the other option and would mean a `codeql database create`
+      # step of our own plus a separate build; for a project with no custom
+      # CodeQL queries that is maintenance for no gain.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.language == 'rust' && 'autobuild' || 'none' }}
-
-      - name: Build (for the Rust extractor)
-        if: matrix.language == 'rust'
-        uses: github/codeql-action/autobuild@v3
+          build-mode: none
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

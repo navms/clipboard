@@ -104,6 +104,9 @@ Both are one-time. After that it opens normally.
 brew install --cask clipboard-history
 ```
 
+> The tap is not published yet. Until it is, use the `.dmg` above or build from
+> source — this section is here so the command to run once it lands is obvious.
+
 ### From source
 
 You will need Node 22+, pnpm 12+, and a stable Rust toolchain.
