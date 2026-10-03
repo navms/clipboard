@@ -54,14 +54,13 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      # macOS needs the system frameworks Tauri links against.
-      - name: Install Tauri system dependencies
-        run: |
-          brew install \
-            webkit2gtk \
-            javascriptcoregtk \
-            libappindicator \
-            librsvg
+      # No system-dependency step. WKWebView ships with macOS and the runner
+      # image has the Xcode CLT, so `cargo build` links against the real
+      # frameworks as-is. The `brew install webkit2gtk javascriptcoregtk
+      # libappindicator` incantation that circulates in Tauri CI examples is
+      # Linux-only — those formulae are not packaged for macOS, so on a
+      # `macos-*` runner the install aborts the job before a single line of
+      # Rust is checked.
 
       - name: Check formatting
         working-directory: src-tauri
@@ -98,13 +97,7 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Install Tauri system dependencies
-        run: |
-          brew install \
-            webkit2gtk \
-            javascriptcoregtk \
-            libappindicator \
-            librsvg
+      # No system-dependency step on macOS — see the note in the Rust job.
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

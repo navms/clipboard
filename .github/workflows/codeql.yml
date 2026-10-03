@@ -12,7 +12,12 @@ on:
 
 permissions:
   contents: read
+  # Uploading SARIF results and updating the PR check needs these. Without
+  # them the analysis step runs to completion and then fails at the upload with
+  # "Resource not accessible by integration", which reads like a CodeQL bug
+  # rather than a missing scope.
   security-events: write
+  actions: read
 
 jobs:
   analyze:
@@ -26,13 +31,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Rust is a compiled language, so CodeQL has to see a real build to trace
+      # data flow; `autobuild` infers the build system and runs it. The other
+      # two modes do not apply: `none` would leave the extractor nothing to
+      # observe, `manual` expects a `codeql database create` step that does not
+      # exist here. Note the supported values are none / autobuild / manual —
+      # there is no `build`.
+      - name: Prepare Rust database
+        if: matrix.language == 'rust'
+        uses: github/codeql-action/autobuild@v3
+
+      # JavaScript is interpreted, so the sources are enough.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          # Clipboard History reaches the network through the webview only;
-          # build-mode is the right trade-off for a desktop app of this size.
-          build-mode: ${{ matrix.language == 'javascript-typescript' && 'none' || 'build' }}
+          build-mode: ${{ matrix.language == 'rust' && 'autobuild' || 'none' }}
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

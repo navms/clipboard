@@ -40,14 +40,10 @@ jobs:
           workspaces: src-tauri -> target
           key: release-${{ github.ref_name }}
 
-      - name: Install Tauri system dependencies
-        run: |
-          brew install \
-            webkit2gtk \
-            javascriptcoregtk \
-            libappindicator \
-            librsvg
-
+      # No system-dependency step on macOS: WKWebView ships with the OS and
+      # the runner image has the Xcode CLT. The `brew install webkit2gtk
+      # javascriptcoregtk libappindicator` block that appears in many Tauri CI
+      # examples is Linux-only and would fail here.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
