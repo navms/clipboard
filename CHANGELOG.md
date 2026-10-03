@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.1.2] — 2026-10-03
+
+### Added
+
+**Real application icons in the detail panel** — the `Source` row now shows
+the actual icon of the app an entry came from, instead of a coloured square
+with the app's initial.
+
+- Resolved on the Rust side from the bundle id already stored on every entry,
+  via `NSWorkspace`. Rendered to a 32px PNG and cached under `icons/` in the
+  data dir, so an entry copied weeks ago shows its icon even though that app
+  has long since quit — a running-app lookup cannot do that.
+- **Falls back to the initial tile, as before, when the icon cannot be had**:
+  the app is not installed, never declared a bundle id, or the data dir was
+  emptied after the entry was first viewed. These are ordinary states, not
+  errors, and both paths are drawn by the same component, so the row never
+  shows a broken image.
+- Resolved on read rather than on capture. AppKit's icon service wants the
+  main thread and capture runs on a worker thread, so capturing is not an
+  option — and the list only ever shows the initial anyway.
+- Icons are never deleted. They belong to an app, not to an entry: removing
+  one would strip the icon from every other entry from the same app.
+- The asset protocol scope is unchanged. Real icons live in `/Applications`,
+  outside it, and widening it would let the webview read any file in any app
+  bundle — while `iconForFile:` needs nothing but a path. Writing the PNG on
+  the Rust side keeps the scope exactly as narrow as it was.
+- The file name is a hash of the bundle id, not the id itself. A bundle id is
+  declared by the app that carries it, so putting one in a path unfiltered
+  would be a path traversal; hashing makes that impossible by construction.
+
 ## [0.1.1] — 2026-10-03
 
 ### Fixed

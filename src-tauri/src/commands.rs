@@ -67,6 +67,11 @@ pub fn get_clip_detail(state: State<'_, Arc<AppState>>, id: i64) -> Result<Optio
             .thumb_path
             .as_deref()
             .map(|p| absolutise(&state.data_dir, p));
+        // Resolved here rather than in the row read: it is a lookup through
+        // AppKit plus a write, neither of which belongs in a query, and only
+        // the detail pane has a use for the answer. The list would pay for
+        // every row on every refresh to render a field it does not show.
+        d.source_icon = crate::appicon::resolve(&state.data_dir, d.item.source_bundle.as_deref());
         d
     }))
 }

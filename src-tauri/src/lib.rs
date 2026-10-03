@@ -1,3 +1,4 @@
+mod appicon;
 mod clipboard;
 mod commands;
 mod display;

@@ -1,6 +1,6 @@
 [package]
 name = "clipboard"
-version = "0.1.1"
+version = "0.1.2"
 description = "Clipboard history for macOS"
 authors = ["hejin"]
 edition = "2021"
@@ -57,6 +57,12 @@ objc2-app-kit = { version = "0.3", features = [
     "NSRunningApplication",
     "NSWorkspace",
     "NSApplication",
+    # Resolving a bundle id to its icon in the detail pane. `NSImage` carries
+    # `-[NSWorkspace iconForFile:]`, and `NSImageRep` is what the PNG encode
+    # hangs off -- `NSBitmapImageFileType::PNG` itself is ungated, so the
+    # obvious feature to reach for is the wrong one.
+    "NSImage",
+    "NSImageRep",
 ] }
 objc2-foundation = "0.3"
 # Synthesising Cmd+V into the target app, the other half of "Paste to X", and,

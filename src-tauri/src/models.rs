@@ -73,6 +73,14 @@ pub struct ClipDetail {
     pub byte_size: Option<i64>,
     pub characters: Option<i64>,
     pub words: Option<i64>,
+    /// Absolute path to the source application's icon, cached on first sight.
+    ///
+    /// Filled in by the command layer rather than the row read, because the
+    /// icon is not a column: it is resolved from the bundle id through AppKit
+    /// and written to `<data_dir>/icons`, and only the detail pane has a reason
+    /// to pay that. `None` means no icon could be had, and the frontend falls
+    /// back to its initial tile.
+    pub source_icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

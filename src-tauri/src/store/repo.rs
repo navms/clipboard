@@ -366,6 +366,10 @@ pub fn detail(conn: &Connection, id: i64) -> Result<Option<ClipDetail>> {
                 byte_size: row.get("byte_size")?,
                 characters,
                 words,
+                // Not a column: `commands::get_clip_detail` overwrites this
+                // with a resolved path, or leaves it `None` when the icon
+                // could not be had. See `appicon::resolve`.
+                source_icon: None,
             })
         })
         .optional()?;

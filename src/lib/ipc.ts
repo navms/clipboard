@@ -33,11 +33,12 @@ function toAsset(path?: string | null): string | null {
   return isTauri ? convertFileSrc(path) : path;
 }
 
-function hydrate<T extends ClipListItem>(item: T): T {
+function hydrate<T extends ClipDetail>(item: T): T {
   return {
     ...item,
     thumbPath: toAsset(item.thumbPath),
     imagePath: toAsset(item.imagePath),
+    sourceIcon: toAsset(item.sourceIcon),
   };
 }
 

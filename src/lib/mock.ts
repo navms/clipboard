@@ -15,6 +15,22 @@ import { countWords } from "./format";
  * search are all exercisable without a Rust toolchain.
  */
 
+/**
+ * Real app icons, captured from the macOS icon service, for the preview only.
+ *
+ * The Tauri build resolves these itself (`appicon::resolve`); here they are
+ * static files so `pnpm dev` can exercise the `<img>` branch of `AppIcon`
+ * without a Rust toolchain. Only apps installed on the machine that captured
+ * them made it in, which is the point: the rows whose bundle id is missing
+ * from this table fall through to the initial tile exactly as an uninstalled
+ * app would in the real build.
+ */
+const MOCK_ICONS: Record<string, string> = {
+  "com.google.Chrome": "/mock-icons/chrome.png",
+  "com.apple.Notes": "/mock-icons/notes.png",
+  "com.apple.finder": "/mock-icons/finder.png",
+};
+
 function todayAt(h: number, m: number, s = 0): number {
   const d = new Date();
   d.setHours(h, m, s, 0);
@@ -166,6 +182,7 @@ export function mockDetail(id: number): ClipDetail {
     contentText: text,
     characters: text ? text.length : null,
     words: text ? countWords(text) : null,
+    sourceIcon: base.sourceBundle ? (MOCK_ICONS[base.sourceBundle] ?? null) : null,
   };
 
   if (base.kind === "image") {

@@ -40,7 +40,7 @@ export function InfoSection({ clip }: { clip: ClipDetail }) {
       </div>
 
       <Row label="Source">
-        <AppIcon name={clip.sourceApp} />
+        <AppIcon name={clip.sourceApp} src={clip.sourceIcon} />
         <span className="truncate">{clip.sourceApp ?? "Unknown"}</span>
       </Row>
 

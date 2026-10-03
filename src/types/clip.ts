@@ -55,6 +55,14 @@ export interface ClipDetail extends ClipListItem {
   byteSize?: number | null;
   characters?: number | null;
   words?: number | null;
+  /**
+   * Asset URL of the source application's icon, resolved on the Rust side.
+   *
+   * Detail-only on purpose: it is not a stored field but a lookup answered
+   * when the pane opens, and putting it on `ClipListItem` would have the list
+   * pay for an icon it never draws.
+   */
+  sourceIcon?: string | null;
 }
 
 export interface ClipQuery {
