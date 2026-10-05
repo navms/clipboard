@@ -1,6 +1,6 @@
 [package]
 name = "clipboard"
-version = "0.1.2"
+version = "0.1.3"
 description = "Clipboard history for macOS"
 authors = ["hejin"]
 edition = "2021"
