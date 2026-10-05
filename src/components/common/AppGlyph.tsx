@@ -13,7 +13,9 @@ export function AppGlyph({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex h-4.5 w-4.5 shrink-0 items-center justify-center overflow-hidden",
+        // 16px, matching the icon's own 16x16 viewBox and every other 16px
+        // icon slot in the panel (AppIcon, ContentRow, ActionHint).
+        "inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden",
         className,
       )}
       aria-hidden

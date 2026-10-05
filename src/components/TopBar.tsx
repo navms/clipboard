@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { beginPanelDrag, resetPanelPosition } from "../lib/ipc";
 import { useApp } from "../stores/useApp";
 import { TypeFilter } from "./TypeFilter";
@@ -69,9 +69,18 @@ export function TopBar() {
 
         void resetPanelPosition();
       }}
-      className="flex h-14 shrink-0 items-center gap-1.5 border-b border-divider px-2.5"
+      className="flex h-14 shrink-0 items-center gap-2 border-b border-divider px-3"
     >
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      {/* The field has no container of its own — a transparent input in a
+          drag strip — so the glyph is the only thing that says "this is a
+          search box". Without it the left half of the bar reads as empty
+          chrome next to a fully-bordered dropdown. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Search
+          className="h-4 w-4 shrink-0 text-faint"
+          strokeWidth={1.75}
+          aria-hidden
+        />
         <input
           ref={inputRef}
           value={query}
@@ -85,7 +94,7 @@ export function TopBar() {
           placeholder="Type to filter entries..."
           spellCheck={false}
           autoComplete="off"
-          className="h-8 w-full min-w-0 bg-transparent px-1.5 text-[13px] text-ink outline-none placeholder:text-faint"
+          className="h-8 w-full min-w-0 bg-transparent px-2 text-body text-ink outline-none placeholder:text-faint"
         />
         {query && (
           <button
@@ -95,7 +104,7 @@ export function TopBar() {
               setQuery("");
               inputRef.current?.focus();
             }}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/6 text-muted hover:bg-black/10 dark:bg-white/8 dark:hover:bg-white/[0.14]"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/8 text-muted hover:bg-black/16 dark:bg-white/12 dark:hover:bg-white/20"
           >
             <X className="h-3 w-3" strokeWidth={2.5} />
           </button>

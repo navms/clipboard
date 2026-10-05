@@ -112,18 +112,18 @@ function ContentRow({
       type="button"
       onClick={onClick}
       title={title}
-      className="group -mx-1.5 flex items-start gap-2.5 rounded-[7px] px-1.5 py-1.5 text-left transition-colors hover:bg-hover"
+      className="group -mx-2 flex items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-hover"
     >
       <Icon
         className={cn("mt-0.5 h-4 w-4 shrink-0", iconClass)}
         strokeWidth={1.75}
       />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[13px] leading-snug wrap-break-word">
-          {label}
-        </span>
+        <span className="text-body leading-snug wrap-break-word">{label}</span>
         {detail != null && (
-          <span className="line-clamp-2 font-mono text-[11px] leading-snug text-muted wrap-break-word">
+          // The path is supporting context, so it drops a step and a tone
+          // rather than repeating the file name's weight.
+          <span className="line-clamp-2 font-mono text-micro leading-snug text-muted wrap-break-word">
             {detail}
           </span>
         )}
@@ -138,12 +138,14 @@ function ContentRow({
  */
 function ActionHint({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2.5 text-[11px] text-faint">
+    <div className="flex items-center gap-3 text-micro text-faint">
       <span aria-hidden className="h-4 w-4 shrink-0" />
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-2">
+        {/* One keycap component, one geometry — only the glyph step changes
+            to match the hint's own type size. */}
         <span className="flex items-center gap-0.5">
-          <Kbd className="h-4.5 min-w-5 rounded-[4px] text-[11px]">⌘</Kbd>
-          <Kbd className="h-4.5 min-w-5 rounded-[4px] text-[11px]">O</Kbd>
+          <Kbd className="text-micro">⌘</Kbd>
+          <Kbd className="text-micro">O</Kbd>
         </span>
         {children}
       </span>
@@ -165,10 +167,10 @@ export function ClipPreview({ clip }: { clip: ClipDetail }) {
               src={clip.imagePath ?? clip.thumbPath ?? ""}
               alt={clip.title}
               draggable={false}
-              className="max-h-full w-auto max-w-full rounded-[10px] object-contain ring-1 ring-black/10 dark:ring-white/10"
+              className="max-h-full w-auto max-w-full rounded-panel object-contain ring-1 ring-black/10 dark:ring-white/10"
             />
           ) : (
-            <div className="text-[13px] text-faint">Image unavailable</div>
+            <div className="text-body text-faint">Image unavailable</div>
           )}
         </div>
       );
@@ -181,7 +183,7 @@ export function ClipPreview({ clip }: { clip: ClipDetail }) {
       return (
         // `inset-0` pins the layer to the pane's *padding* box, so the swatch
         // centres on the visible pane instead of the padded content box that
-        // the wrapper's `pt-3.5` carves out. (An earlier `calc(100% + N)`
+        // the wrapper's `pt-4` carves out. (An earlier `calc(100% + N)`
         // trick silently failed: CSS requires spaces around `+` in `calc()`.)
         <div className="absolute inset-0 flex items-center justify-center">
           <div
@@ -191,7 +193,7 @@ export function ClipPreview({ clip }: { clip: ClipDetail }) {
               boxShadow: `0 0 0 5px color-mix(in srgb, ${swatch} 42%, transparent)`,
             }}
           />
-          <span className="absolute left-1/2 top-[calc(50%+58px)] -translate-x-1/2 text-[13px] text-ink">
+          <span className="absolute left-1/2 top-[calc(50%+58px)] -translate-x-1/2 text-body text-ink">
             {swatch}
           </span>
         </div>
@@ -206,14 +208,14 @@ export function ClipPreview({ clip }: { clip: ClipDetail }) {
         .filter(Boolean);
 
       if (!paths.length) {
-        return <div className="text-[13px] text-muted">{clip.title}</div>;
+        return <div className="text-body text-muted">{clip.title}</div>;
       }
 
       return (
-        // `-mt-1.5` cancels the first row's own padding so the text lands where
-        // every other kind's content starts, while the hover pill keeps its
-        // full surface.
-        <div className="-mt-1.5 flex flex-col gap-0.5">
+        // `-mt-2` cancels the first row's own 8px block padding so the text
+        // lands where every other kind's content starts, while the hover pill
+        // keeps its full surface. It has to track `ContentRow`'s `py-2`.
+        <div className="-mt-2 flex flex-col gap-0.5">
           {paths.map((path, index) => {
             const { name, dir } = splitPath(path);
             return (
@@ -242,7 +244,7 @@ export function ClipPreview({ clip }: { clip: ClipDetail }) {
       const parts = splitUrl(raw);
 
       return (
-        <div className="-mt-1.5 flex flex-col gap-0.5">
+        <div className="-mt-2 flex flex-col gap-0.5">
           {/* The URL *is* the button: a menu entry that appears for only one
               kind makes the user remember where it went, and the thing being
               opened is a better target than a label in a list.
@@ -285,7 +287,7 @@ export function ClipPreview({ clip }: { clip: ClipDetail }) {
     case "text":
     default:
       return (
-        <div className="whitespace-pre-wrap wrap-break-word text-[13px] leading-relaxed text-ink">
+        <div className="whitespace-pre-wrap wrap-break-word text-body leading-relaxed text-ink">
           {clip.contentText ?? clip.title}
         </div>
       );

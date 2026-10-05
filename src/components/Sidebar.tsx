@@ -35,8 +35,8 @@ function PinnedHint() {
   if (view !== "history" || query.trim() || count === 0) return null;
 
   return (
-    <div className="mx-2 mb-2 flex shrink-0 items-start gap-1.75 rounded-lg bg-hover px-2.5 py-1.75 text-[11.5px] leading-[1.45] text-muted">
-      <Pin className="mt-px h-3.25 w-3.25 shrink-0 text-faint" strokeWidth={2} />
+    <div className="mx-2 mb-2 flex shrink-0 items-start gap-2 rounded-lg bg-hover px-3 py-2 text-caption text-muted">
+      <Pin className="mt-px h-3.5 w-3.5 shrink-0 text-faint" strokeWidth={2} />
       <span>
         {count} pinned {count === 1 ? "entry" : "entries"} kept in the Pinned
         tab — History stays chronological.

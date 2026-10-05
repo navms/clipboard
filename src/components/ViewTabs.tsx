@@ -27,7 +27,7 @@ export function ViewTabs() {
     <div
       role="tablist"
       aria-label="Clipboard view"
-      className="mx-2 mt-2 mb-0.5 flex shrink-0 gap-0.5 rounded-lg bg-seg-track p-0.5"
+      className="mx-2 mt-2 mb-1 flex shrink-0 gap-0.5 rounded-lg bg-seg-track p-0.5"
     >
       {TABS.map((tab) => {
         const selected = tab.value === view;
@@ -40,13 +40,11 @@ export function ViewTabs() {
             title={`${tab.label} (${tab.shortcut})`}
             onClick={() => setView(tab.value)}
             className={cn(
-              "h-6.5 flex-1 rounded-md text-[12px] font-medium transition-colors",
+              "h-6 flex-1 rounded-md text-caption font-medium transition-colors",
               selected
-                ? cn(
-                    "bg-seg-active text-ink",
-                    "shadow-[0_0_0_0.5px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.06)]",
-                    "dark:shadow-[0_0_0_0.5px_rgba(255,255,255,0.05)]",
-                  )
+                ? // `shadow-seg` is the bottom of the elevation scale: a chip
+                  // resting on its own recessed track, nothing more.
+                  "bg-seg-active text-ink shadow-seg"
                 : "bg-transparent text-muted hover:text-ink",
             )}
           >

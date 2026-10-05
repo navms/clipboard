@@ -7,9 +7,25 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ *
- * Semantic tokens for the panel palette.
- * Light: near-white chrome, #E8E8E8 selection pill, #3366FF accent.
- * Dark:  #1F1F21 chrome, #3A3A3D selection pill, cool-blue accent.
+ * Design scales — the closed sets every class name draws from.
+ *
+ *   space    4 / 8 / 12 / 16 / 24 / 32 / 48 / 64
+ *            (a 2px sub-step is allowed for icon-level gaps only)
+ *   type     micro 11 · caption 12 · body 13          (~1.2 modular)
+ *   radius   sm 4 · md 6 · lg 8 · xl 12 · panel 10
+ *   shadow   seg (raised chip) · menu (floating) · panel (the window)
+ *   ink      ink → muted → faint, three tones and no fourth
+ *
+ * A value off one of these scales does not go in a class name: the moment
+ * two components pick 7px and 8px for the same job the panel stops reading
+ * as one object.
+ *
+ * The three ink tones are chosen to be the *darkest possible* set that still
+ * separates, because each of them has to clear WCAG AA (4.5:1) on its own
+ * surface. That constraint is what picked the numbers — the previous
+ * `--rc-faint` measured 2.54:1 on white, which is invisible to anyone who
+ * needs it to be, and it was carrying real copy (empty states, hints,
+ * placeholders), not decoration.
  * ------------------------------------------------------------------ */
 :root {
   --rc-app: #ffffff;
@@ -17,14 +33,15 @@
   --rc-sidebar: #fbfbfc;
   --rc-selected: #e8e8e8;
   --rc-hover: #f1f1f2;
-  --rc-ink: #1c1c1e;
-  --rc-muted: #75757a;
-  --rc-faint: #a2a2a8;
+  --rc-ink: #1c1c1e; /* 16.9:1 on --rc-app */
+  --rc-muted: #5c5c63; /*  6.6:1 */
+  --rc-faint: #75757a; /*  4.6:1 */
   --rc-divider: #ededed;
-  --rc-line: #e0e0e3;
-  --rc-accent: #3366ff;
+  --rc-line: #d4d4d8;
+  --rc-accent: #3366ff; /*  4.7:1 */
+  --rc-danger: #c9282e; /*  5.1:1 */
   /* Solid chip fill: the keycaps have no outline, the fill alone carries
-   * them. Measured at 24x21 CSS, #E8E8E8. */
+   * them. Measured at 24x20 CSS, #E8E8E8. */
   --rc-keycap: #e8e8e8;
   /* Segmented control (the History / Pinned rail tabs): a recessed track with
    * a raised chip on the active segment. */
@@ -33,6 +50,7 @@
   --rc-panel-ring: rgba(0, 0, 0, 0.06);
   --rc-panel-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.16);
   --rc-menu-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.14);
+  --rc-seg-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .dark {
@@ -41,18 +59,20 @@
   --rc-sidebar: #232325;
   --rc-selected: #3a3a3d;
   --rc-hover: #2f2f32;
-  --rc-ink: #f2f2f4;
-  --rc-muted: #8e8e93;
-  --rc-faint: #6f6f75;
+  --rc-ink: #f2f2f4; /* 12.8:1 on --rc-panel */
+  --rc-muted: #b1b1b8; /*  6.7:1 */
+  --rc-faint: #94949b; /*  4.8:1 */
   --rc-divider: #2e2e31;
-  --rc-line: #3a3a3d;
-  --rc-accent: #4c7dff;
+  --rc-line: #45454a;
+  --rc-accent: #6b95ff; /*  5.0:1 */
+  --rc-danger: #ff6b70; /*  5.2:1 */
   --rc-keycap: #363639;
   --rc-seg-track: #26262a;
   --rc-seg-active: #3a3a3d;
   --rc-panel-ring: rgba(255, 255, 255, 0.06);
   --rc-panel-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06), 0 12px 32px rgba(0, 0, 0, 0.55);
   --rc-menu-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.45);
+  --rc-seg-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 @theme inline {
@@ -67,6 +87,7 @@
   --color-divider: var(--rc-divider);
   --color-line: var(--rc-line);
   --color-accent: var(--rc-accent);
+  --color-danger: var(--rc-danger);
   --color-keycap: var(--rc-keycap);
   --color-seg-track: var(--rc-seg-track);
   --color-seg-active: var(--rc-seg-active);
@@ -77,8 +98,25 @@
    * missing, and a utility that matches no theme entry is emitted no CSS. */
   --color-panel-ring: var(--rc-panel-ring);
 
+  /* Three steps, ~1.2 apart: micro 11 · caption 12 · body 13.
+   *
+   * micro   de-emphasised: section headings, row labels, keycap legends
+   * caption secondary copy: control labels, empty-state body, hint text
+   * body    the panel's base: row titles, values, input text
+   *
+   * No line-height is baked into these. A `text-*` utility that also sets
+   * `line-height` fights any `leading-*` on the same element on cascade
+   * order alone; the base layer sets one default instead, and the places
+   * that need tighter or looser say so explicitly. */
+  --text-micro: 11px;
+  --text-caption: 12px;
+  --text-body: 13px;
+
+  --radius-panel: 10px;
+
   --shadow-panel: var(--rc-panel-shadow);
   --shadow-menu: var(--rc-menu-shadow);
+  --shadow-seg: var(--rc-seg-shadow);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
     "Helvetica Neue", "Segoe UI", sans-serif;
@@ -103,6 +141,10 @@
        transparent Tauri window (see .is-tauri below). */
     background: #c9c9ce;
     font-family: var(--font-sans);
+    /* The one default line-height in the app, inherited by every type step.
+       Multi-line blocks ask for more (`leading-relaxed`); single-line chrome
+       asks for less (`leading-none`). */
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }

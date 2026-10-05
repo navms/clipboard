@@ -68,8 +68,8 @@ export function TypeFilter() {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex h-8 w-46.5 items-center justify-between rounded-[9px] border px-2.5",
-          "text-[13px] text-ink transition-colors",
+          "flex h-8 w-48 items-center justify-between rounded-lg border px-2",
+          "text-body text-ink transition-colors",
           open
             ? "border-line bg-hover"
             : "border-line bg-transparent hover:bg-hover",
@@ -88,7 +88,7 @@ export function TypeFilter() {
       {open && (
         <div
           role="listbox"
-          className="animate-pop absolute right-0 top-[calc(100%_+_6px)] z-30 w-46.5 rounded-xl bg-panel p-2 shadow-menu"
+          className="animate-pop absolute right-0 top-[calc(100%_+_8px)] z-30 w-48 rounded-xl bg-panel p-2 shadow-menu"
         >
           <input
             ref={searchRef}
@@ -112,7 +112,7 @@ export function TypeFilter() {
             }}
             placeholder="Search..."
             spellCheck={false}
-            className="mb-1.5 h-7.5 w-full rounded-lg border border-line bg-transparent px-2.5 text-[13px] text-ink outline-none placeholder:text-faint"
+            className="mb-2 h-7 w-full rounded-lg border border-line bg-transparent px-2 text-body text-ink outline-none placeholder:text-faint"
           />
 
           <div className="flex flex-col">
@@ -127,7 +127,7 @@ export function TypeFilter() {
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => commit(option.value)}
                   className={cn(
-                    "flex h-8 items-center rounded-lg px-2.5 text-left text-[13px] text-ink",
+                    "flex h-8 items-center rounded-lg px-2 text-left text-body text-ink",
                     "transition-colors",
                     selected
                       ? "bg-selected"
@@ -141,9 +141,7 @@ export function TypeFilter() {
               );
             })}
             {visible.length === 0 && (
-              <div className="px-2.5 py-2 text-[13px] text-muted">
-                No matching types
-              </div>
+              <div className="px-2 py-2 text-body text-muted">No matching types</div>
             )}
           </div>
         </div>

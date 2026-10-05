@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [0.1.3] — 2026-10-05
+
+A visual pass over the whole panel. No behaviour changed, and no Rust
+changed: every edit is a class name or a token value.
+
+### Changed
+
+**The panel now draws from closed design scales.** Spacing, type, radius,
+shadow and ink each come from a fixed set declared at the top of
+`src/index.css`, instead of being picked per component.
+
+- Spacing is on a 4px grid (4/8/12/16/24/32/48/64), with a 2px sub-step
+  allowed for icon-level gaps only. The seventeen values that sat on no
+  scale — `h-10.5`, `h-6.5`, `h-5.25`, `w-46.5`, `pt-17` and the rest — are
+  gone, and `src/` now scans clean for arbitrary values.
+- Type is three steps: `micro` 11, `caption` 12, `body` 13. That replaces
+  five sizes, two of which were used exactly once (`11.5px`, `10px`).
+- Radius is `sm`/`md`/`lg`/`xl` plus one panel corner, and shadows are three
+  levels — `seg` < `menu` < `panel`. The segmented control's hand-written
+  shadow is a token now, like the other two.
+- The two menus that had drifted to different row heights (34px and 32px)
+  share one.
+
+**Metadata labels are a step down from their values.** The `Information`
+rows had label and value at the same 13px, separated only by tone, so a row
+read as one sentence — "Source Chrome" — and squinting told you nothing.
+The label is now `micro`/faint above a `body`/ink value: two type steps
+apart, and the hierarchy survives with all colour removed.
+
+**The search field got a glyph.** It has no container of its own — it is a
+transparent input inside a drag strip — so nothing marked it as a search
+box, and it sat next to a fully-bordered dropdown at a different weight.
+
+### Fixed
+
+- **Three ink tones fell short of WCAG AA (4.5:1).** `faint` measured
+  **2.54:1** on white and **2.87:1** on the dark panel, and it was carrying
+  real copy rather than decoration: empty-state bodies, input placeholders,
+  the "Add a note" affordance, keycap legends. `muted` was **4.39:1** in
+  dark mode. All three are now the darkest set that still separates —
+  light **17.0 / 6.6 / 4.6**, dark **12.8 / 6.7 / 4.8**.
+- **The destructive-action red was 3.91:1**, as a hard-coded hex in two
+  places. It is a `--rc-danger` token now, at 5.49:1 (light) and 5.17:1
+  (dark). The dark accent was 3.87:1 and is now 5.02:1.
+- **The detail preview ended flush against the rule above the note.** The
+  bottom inset now matches the top one. The centred colour swatch is
+  unaffected, because `inset-0` resolves against the padding box, which
+  padding does not change.
+
 ## [0.1.2] — 2026-10-03
 
 ### Added
@@ -141,6 +190,8 @@ First public release.
   Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
   `tauri`, `wry`, `plist` and others.
 
-[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/navms/clipboard/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/navms/clipboard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/navms/clipboard/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/navms/clipboard/releases/tag/v0.1.0

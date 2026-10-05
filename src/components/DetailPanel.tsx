@@ -21,12 +21,12 @@ export function DetailPanel() {
 
   if (!clip) {
     return (
-      <section className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 bg-app px-8 text-center">
-        <p className="text-[13px] font-medium text-muted">
+      <section className="flex min-w-0 flex-1 flex-col items-center justify-center gap-2 bg-app px-8 text-center">
+        <p className="text-body font-semibold text-muted">
           {loading ? "Loading…" : "No entry selected"}
         </p>
         {!loading && (
-          <p className="text-[12px] text-faint">
+          <p className="text-caption text-faint">
             Pick an entry from the list to inspect it.
           </p>
         )}
@@ -38,7 +38,10 @@ export function DetailPanel() {
     <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-app">
       {/* `relative` is the anchor for previews that cover the whole pane
           (the colour swatch uses `absolute inset-0`). */}
-      <ScrollArea className="relative px-4 pt-3.5">
+      {/* `pb-4` mirrors the top inset so a long preview does not end flush
+          against the rule above the note. The padding box is what `inset-0`
+          resolves against, so the centred colour swatch is unaffected. */}
+      <ScrollArea className="relative px-4 pt-4 pb-4">
         <ClipPreview clip={clip} />
       </ScrollArea>
 

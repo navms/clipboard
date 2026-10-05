@@ -15,12 +15,18 @@ const CONTENT_TYPE: Record<ClipKind, string> = {
  * One metadata line. Every row except the last carries a hairline under it,
  * and the rules run the full width of the pane: the 16px gutter lives on the
  * row itself, not on the section wrapper.
+ *
+ * The label is a *step down* from the value, not merely a lighter copy of it.
+ * At equal size the two halves of the row read as one sentence — "Source
+ * Chrome" — and the eye has to work out which noun it is looking for. Two
+ * type steps apart (micro/faint over body/ink), the row resolves at a glance
+ * and the squint test passes with no colour in the picture at all.
  */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex h-7 items-center justify-between gap-4 border-b border-divider px-4 last:border-b-0">
-      <span className="shrink-0 text-[13px] text-muted">{label}</span>
-      <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-ink">
+      <span className="shrink-0 text-micro text-faint">{label}</span>
+      <span className="flex min-w-0 items-center gap-2 text-body text-ink">
         {children}
       </span>
     </div>
@@ -33,9 +39,11 @@ export function InfoSection({ clip }: { clip: ClipDetail }) {
 
   return (
     <div className="flex flex-col">
-      {/* Section heading: same tone and size as the labels below, 28px tall,
-          and the only row with no rule under it. */}
-      <div className="flex h-7 items-center px-4 text-[13px] text-muted">
+      {/* Section heading: the same micro step as the labels it owns, 28px
+          tall, and the only row with no rule under it. It separates from
+          them on weight and one tone of ink rather than on size — a heading
+          that is also a different size starts a new scale of its own. */}
+      <div className="flex h-7 items-center px-4 text-micro font-semibold text-muted">
         Information
       </div>
 

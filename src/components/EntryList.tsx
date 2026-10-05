@@ -94,10 +94,14 @@ export function EntryList() {
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 {row.type === "header" ? (
-                  <div className="flex h-8 items-center gap-1.5 px-2 text-[11px] font-semibold tracking-[0.01em] text-muted">
+                  // De-emphasised group heading: the same micro step as every
+                  // other section label, one tone lighter than the row titles
+                  // it introduces. The count is subordinate to the heading, so
+                  // it drops a tone rather than a size.
+                  <div className="flex h-8 items-center gap-2 px-2 text-micro font-semibold text-muted">
                     {row.label}
                     {row.count != null && (
-                      <span className="rounded-full bg-hover px-1.5 py-px text-[10px] font-medium text-faint">
+                      <span className="rounded-full bg-hover px-2 py-px text-micro font-medium text-faint">
                         {row.count}
                       </span>
                     )}
@@ -140,10 +144,8 @@ function EmptyState({
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
-        <p className="text-[13px] font-medium text-muted">
-          Loading clipboard…
-        </p>
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <p className="text-body font-semibold text-muted">Loading clipboard…</p>
       </div>
     );
   }
@@ -161,10 +163,13 @@ function EmptyState({
     body = "Try a different search.";
   }
 
+  // Two levels only: the title carries the state, the body says how to get out
+  // of it. Anything more competes with a list that is about to replace this
+  // whole block.
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
-      <p className="text-[13px] font-medium text-muted">{title}</p>
-      <p className="text-[12px] leading-relaxed text-faint">{body}</p>
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+      <p className="text-body font-semibold text-muted">{title}</p>
+      <p className="text-caption text-faint">{body}</p>
     </div>
   );
 }

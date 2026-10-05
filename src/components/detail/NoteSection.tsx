@@ -74,7 +74,7 @@ export function NoteSection() {
 
   if (editing) {
     return (
-      <div className="shrink-0 px-4 pb-2.5">
+      <div className="shrink-0 px-4 pb-3">
         {/* Grey, not blue. This panel has no "coloured focus ring" language:
             hover is `bg-hover`, selection is `bg-selected`, and an open
             control (see TypeFilter) is `border-line` over `bg-hover`. A
@@ -110,24 +110,24 @@ export function NoteSection() {
               if (e.key === "Enter") e.stopPropagation();
             }}
             onBlur={() => void commit(draft)}
-            className="block min-h-15.5 w-full resize-none border-0 bg-app px-2.5 py-1.5 text-[13px] leading-[1.5] text-ink outline-none"
+            className="block min-h-16 w-full resize-none border-0 bg-app px-3 py-2 text-body leading-relaxed text-ink outline-none"
           />
           {/* The container is `bg-hover` too, so the bar needs its own rule to
               read as a separate strip — same device the Information rows use
               (`border-b border-divider` between label/value lines). */}
-          <div className="flex items-center justify-between border-t border-divider bg-hover px-2.5 py-1">
-            <span className="flex items-center gap-1 text-[11.5px] text-faint">
-              <Kbd>⌘</Kbd>
-              <Kbd>↵</Kbd>
+          <div className="flex items-center justify-between border-t border-divider bg-hover px-3 py-1">
+            <span className="flex items-center gap-1 text-caption text-faint">
+              <Kbd className="text-micro">⌘</Kbd>
+              <Kbd className="text-micro">↵</Kbd>
               save
               <span className="mx-0.5 text-line">·</span>
-              <Kbd>esc</Kbd>
+              <Kbd className="text-micro">esc</Kbd>
               cancel
             </span>
             {draft.length >= COUNTER_FROM && (
               <span
                 className={cn(
-                  "font-mono text-[11.5px] text-faint",
+                  "font-mono text-caption text-faint",
                   draft.length >= MAX && "text-accent",
                 )}
               >
@@ -142,13 +142,16 @@ export function NoteSection() {
 
   if (saved === null) {
     return (
-      <div className="shrink-0 px-4 pb-2.5">
+      <div className="shrink-0 px-4 pb-3">
+        {/* Tertiary by every lever at once: dashed, faintest ink, no fill.
+            It is an invitation, not a control that matters yet — the row it
+            belongs to is the content. */}
         <button
           type="button"
           onClick={startEditing}
           className={cn(
-            "flex h-7.5 w-full items-center gap-1.5 rounded-lg border border-dashed border-line",
-            "px-2.5 text-[13px] text-faint transition-colors duration-75",
+            "flex h-7 w-full items-center gap-2 rounded-lg border border-dashed border-line",
+            "px-3 text-body text-faint transition-colors duration-75",
             "hover:border-faint hover:bg-hover hover:text-muted",
           )}
         >
@@ -160,7 +163,7 @@ export function NoteSection() {
   }
 
   return (
-    <div className="group/note shrink-0 px-4 pb-2.5">
+    <div className="group/note shrink-0 px-4 pb-3">
       <div
         role="group"
         tabIndex={0}
@@ -174,8 +177,8 @@ export function NoteSection() {
           }
         }}
         className={cn(
-          "relative min-h-7.5 cursor-default rounded-lg border border-transparent",
-          "px-2.5 py-1.5 text-[13px] leading-[1.5] break-words text-ink",
+          "relative min-h-7 cursor-default rounded-lg border border-transparent",
+          "px-3 py-2 text-body leading-relaxed break-words text-ink",
           "hover:border-divider hover:bg-hover",
         )}
       >
