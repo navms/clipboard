@@ -158,15 +158,20 @@ export function ActionsMenu() {
 
   return (
     <div
-      className="animate-fade absolute inset-0 z-40 flex items-start justify-center bg-black/8 pt-17 dark:bg-black/40"
+      className="animate-fade absolute inset-0 z-40 flex items-start justify-center bg-black/8 pt-16 dark:bg-black/40"
       onMouseDown={() => setOpen(false)}
     >
       <div
         role="menu"
-        className="animate-pop w-85 overflow-hidden rounded-xl bg-panel p-1.5 shadow-menu ring-1 ring-panel-ring"
+        // `shadow-menu` is one step below `shadow-panel`: this floats over the
+        // window, it is not the window.
+        className="animate-pop w-84 overflow-hidden rounded-xl bg-panel p-2 shadow-menu ring-1 ring-panel-ring"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="px-2.5 py-1.5 text-[11px] font-semibold tracking-[0.01em] text-faint">
+        {/* Section label: the lowest tier of the type scale, and the faintest
+            tone that still passes AA. It names the rows below it, it does not
+            compete with them. */}
+        <div className="px-2 py-2 text-micro font-semibold text-faint">
           Actions
         </div>
 
@@ -175,7 +180,7 @@ export function ActionsMenu() {
           return (
             <Fragment key={gi}>
               {gi > 0 && (
-                <div aria-hidden className="mx-2.5 my-1 h-px bg-divider" />
+                <div aria-hidden className="mx-2 my-1 h-px bg-divider" />
               )}
               {group.map((action, i) => {
                 const cursorIndex = offset + i;
@@ -190,16 +195,18 @@ export function ActionsMenu() {
                       setOpen(false);
                       action.run();
                     }}
+                    // Same 32px row height as the TypeFilter options: two
+                    // menus, one row.
                     className={cn(
-                      "flex h-8.5 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors",
+                      "flex h-8 w-full items-center gap-3 rounded-lg px-2 text-left text-body transition-colors",
                       cursorIndex === cursor && "bg-selected",
-                      action.danger ? "text-[#e5484d]" : "text-ink",
+                      action.danger ? "text-danger" : "text-ink",
                     )}
                   >
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        action.danger ? "text-[#e5484d]" : "text-ink/70",
+                        action.danger ? "text-danger" : "text-ink/70",
                       )}
                       strokeWidth={1.75}
                     />

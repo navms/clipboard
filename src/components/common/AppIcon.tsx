@@ -87,7 +87,7 @@ export function AppIcon({
     return (
       <span
         className={cn(
-          "h-4 w-4 shrink-0 rounded-sm bg-black/[0.07] dark:bg-white/12",
+          "h-4 w-4 shrink-0 rounded-sm bg-black/8 dark:bg-white/12",
           className,
         )}
       />
@@ -97,7 +97,7 @@ export function AppIcon({
   return (
     <span
       className={cn(
-        "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[9px] font-semibold leading-none text-white",
+        "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-micro font-semibold leading-none text-white",
         className,
       )}
       style={{ backgroundColor: BRAND[name] ?? hashColor(name) }}

@@ -14,7 +14,9 @@ function Panel() {
   return (
     <div
       className={cn(
-        "relative flex h-full w-full flex-col overflow-hidden rounded-[10px] bg-app text-ink ring-1 ring-panel-ring",
+        // `rounded-panel` (10px) is the window corner; `shadow-panel` is the
+        // top of the elevation scale and belongs to the window alone.
+        "relative flex h-full w-full flex-col overflow-hidden rounded-panel bg-app text-ink ring-1 ring-panel-ring",
         // Inside Tauri the window is transparent and macOS draws the drop
         // shadow; a CSS shadow would simply be clipped at the window edge.
         !isTauri && "shadow-panel",
@@ -42,7 +44,7 @@ export function Shell() {
   return (
     <div className="flex h-full w-full items-center justify-center p-6">
       <div
-        className="max-h-full max-w-full overflow-hidden rounded-[10px]"
+        className="max-h-full max-w-full overflow-hidden rounded-panel"
         style={{ width: PANEL_W, height: PANEL_H }}
       >
         <Panel />

@@ -33,7 +33,7 @@ export const EntryRow = memo(function EntryRow({
         thumbPath={item.thumbPath}
         color={item.color}
       />
-      <span className="min-w-0 flex-1 truncate text-[13px] leading-none text-ink">
+      <span className="min-w-0 flex-1 truncate text-body leading-none text-ink">
         {item.title}
       </span>
       {/* A fixed 14px slot, occupied whether or not a note exists, so the
