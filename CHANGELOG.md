@@ -5,7 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.4] — 2026-10-06
+
+A summoned panel lands where it should, and the panel's own idea of "where
+that is" no longer drifts. Three fixes behind one cause — the panel is never
+torn down between openings — plus two dependency patches.
+
+### Changed
+
+**Dependencies.** Vite 8.0.16 → 8.3.2, lucide-react 1.49.0 → 1.50.0, and
+@tauri-apps/api / cli 2.12.0 → 2.12.1, via Dependabot.
 
 ### Fixed
 
@@ -214,7 +223,8 @@ First public release.
   Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
   `tauri`, `wry`, `plist` and others.
 
-[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/navms/clipboard/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/navms/clipboard/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/navms/clipboard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/navms/clipboard/compare/v0.1.0...v0.1.1
