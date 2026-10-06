@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useApp } from "../stores/useApp";
 import { groupByDate } from "../lib/format";
@@ -12,6 +12,73 @@ const ROW_H = 40;
 type Row =
   | { type: "header"; label: string; count: number | null; key: string }
   | { type: "item"; item: ClipListItem; key: string };
+
+/**
+ * Tracks the scroll container's height, and re-reads it whenever the panel
+ * comes back on screen.
+ *
+ * The virtualiser cannot do this for itself. It reads the viewport height from
+ * a rect cached at mount, refreshes it only when the scroll element's
+ * *identity* changes, and a resident panel keeps the same element across every
+ * hide and show — so the cached height stays whatever the hidden window
+ * reported, which is zero. A zero-height viewport makes the range calculation
+ * bail out and return nothing, and the rail renders blank.
+ *
+ * Recreating the virtualiser is the reliable cure, which is what `key` is for:
+ * a fresh instance re-reads the container's true size and recomputes its range
+ * from scratch. Remounting the rail is cheap — the row components are cheap —
+ * and it does not disturb anything outside the list, so trading it for a rail
+ * that always paints is worth it.
+ *
+ * `rAF` for the re-read because the moment a summoned panel is shown the DOM
+ * has not necessarily been laid out yet; by the next frame it has, and the real
+ * height is available.
+ */
+function useViewportHeight(ref: React.RefObject<HTMLDivElement | null>, epoch: number) {
+  const [height, setHeight] = useState(0);
+
+  const measure = useCallback(() => {
+    const el = ref.current;
+    setHeight(el ? el.clientHeight : 0);
+  }, [ref]);
+
+  // Mount, and every panel summon. The timeout is a backstop for the case the
+  // observer misses: WebKit does not reliably report a `display: none` →
+  // visible transition, so without it the rail can wait indefinitely for a
+  // resize that never arrives.
+  useEffect(() => {
+    if (epoch === 0) return;
+    let raf = 0;
+    let timer = 0;
+    const read = () => {
+      measure();
+      // One more read after layout has certainly settled. A window coming back
+      // from `win.hide()` can be measured before AppKit has finished sizing
+      // it, and that first reading is wrong in the one direction that strands
+      // the list at zero.
+      timer = window.setTimeout(measure, 60);
+    };
+    raf = requestAnimationFrame(read);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
+    };
+  }, [epoch, measure]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") {
+      measure();
+      return;
+    }
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(el);
+    measure();
+    return () => observer.disconnect();
+  }, [ref, measure]);
+
+  return height;
+}
 
 /**
  * Left rail: grouped, virtualised history list.
@@ -31,6 +98,7 @@ export function EntryList() {
   const loading = useApp((s) => s.loading);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const viewportHeight = useViewportHeight(scrollRef, listEpoch);
 
   const rows = useMemo<Row[]>(() => {
     // The Pinned rail is a shelf, not a timeline: every row is pinned by
@@ -60,81 +128,174 @@ export function EntryList() {
     return out;
   }, [items, view]);
 
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => (rows[index].type === "header" ? HEADER_H : ROW_H),
-    getItemKey: (index) => rows[index].key,
-    overscan: 10,
-  });
-
-  // Keep the keyboard-selected row inside the viewport.
-  useEffect(() => {
-    if (selectedId == null) return;
-    const index = rows.findIndex(
-      (r) => r.type === "item" && r.item.id === selectedId,
-    );
-    if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
-  }, [selectedId, rows, virtualizer]);
-
-  // Walk the rail back to the top when the panel is summoned.
+  // Set when a summon has just walked the rail back to the top, and read by
+  // `Rail` to make its scroll-into-view stand down for that one pass.
   //
-  // Deliberately *not* left to the effect above. `scrollToIndex` on the
-  // newest row lands on `scrollTop === 32`, not `0`: the row sits at index 1
-  // because index 0 is its date-group header, and `align: "auto"` resolves
-  // to "start", which parks the list exactly one header-height down with
-  // "Today" scrolled off the top.
+  // A ref rather than state on purpose: it has to be readable *during* the same
+  // commit that renders the fresh selection, so it cannot be a value the next
+  // render would observe. A version using state would either miss the window
+  // or take an extra render to clear.
   //
-  // Declared second on purpose. Both effects fire on the same commit, React
-  // runs them in declaration order, and the reset has to have the last word.
+  // `summonedForId` is the selection the stand-down belongs to. The window
+  // closes when the selection becomes something *else* — the arrows moving it,
+  // or a click — because that is a genuine navigation intent rather than the
+  // selection the summon itself produced. Comparing ids, rather than clearing
+  // on any change, is what keeps the summon from disarming itself: the reader
+  // runs in the same commit as one that would clear it.
+  const summonedForIdRef = useRef<number | null | undefined>(undefined);
+
+  // The rail is remounted on a summon so its virtualiser re-measures the
+  // viewport, and remounting resets the offset to zero on its own. A fresh
+  // instance reads the scroll element where it actually is, which the
+  // surviving one cannot: its cached size is still whatever the hidden window
+  // reported.
   useEffect(() => {
-    virtualizer.scrollToOffset(0);
-  }, [listEpoch, virtualizer]);
+    if (listEpoch === 0) return;
+    // Paired with the selection the summon is about to land on. That is
+    // `items[0]` — the same row `refresh()` picks once the summon has cleared
+    // the selection, and the newest one in the rail — so recording it here is
+    // what lets `Rail` recognise the arrival and stand down, rather than
+    // arming a blanket "skip the next scroll" that would also swallow a real
+    // one.
+    //
+    // Read from `items` rather than `rows`: this runs on the commit *before*
+    // `refresh()` lands, so `rows` still describes the outgoing list, while
+    // `items[0]` is what both `refresh()` and this effect agree the new
+    // selection will be.
+    summonedForIdRef.current = items.length ? items[0].id : null;
+  }, [listEpoch, items]);
 
   return (
     <ScrollArea scrollRef={scrollRef} className="px-2 py-2">
       {rows.length === 0 ? (
         <EmptyState loading={loading} view={view} searching={!!query.trim()} />
       ) : (
-        <div
-          className="relative w-full"
-          style={{ height: virtualizer.getTotalSize() }}
-        >
-          {virtualizer.getVirtualItems().map((virtualRow) => {
-            const row = rows[virtualRow.index];
-            return (
-              <div
-                key={virtualRow.key}
-                className="absolute left-0 top-0 w-full"
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
-              >
-                {row.type === "header" ? (
-                  // De-emphasised group heading: the same micro step as every
-                  // other section label, one tone lighter than the row titles
-                  // it introduces. The count is subordinate to the heading, so
-                  // it drops a tone rather than a size.
-                  <div className="flex h-8 items-center gap-2 px-2 text-micro font-semibold text-muted">
-                    {row.label}
-                    {row.count != null && (
-                      <span className="rounded-full bg-hover px-2 py-px text-micro font-medium text-faint">
-                        {row.count}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <EntryRow
-                    item={row.item}
-                    selected={row.item.id === selectedId}
-                    onSelect={select}
-                    onPaste={() => pasteSelected()}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        // Keyed on the viewport height so a panel that comes back at a
+        // different size gets a virtualiser that has actually measured it. A
+        // zero-height rail — the state a hidden window leaves behind — renders
+        // nothing at all, and nothing short of a scroll brings it back.
+        <Rail
+          key={`${viewportHeight}:${listEpoch}`}
+          rows={rows}
+          selectedId={selectedId}
+          scrollRef={scrollRef}
+          select={select}
+          pasteSelected={pasteSelected}
+          standDownFor={summonedForIdRef}
+        />
       )}
     </ScrollArea>
+  );
+}
+
+interface RailProps {
+  rows: Row[];
+  selectedId: number | null;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  select: (id: number) => void;
+  pasteSelected: () => void;
+  /** The selection the last summon parked the rail on; see `EntryList`. */
+  standDownFor: React.RefObject<number | null | undefined>;
+}
+
+/**
+ * The windowing half of the rail, split out so it can be *remounted*.
+ *
+ * A virtualiser caches the scroll element's size when it mounts and only
+ * refreshes that cache when the element's identity changes. This panel is a
+ * resident window that gets hidden rather than unmounted, so the element is
+ * always the same one — and the cache keeps whatever the hidden window
+ * reported, which is zero. The range calculation treats a zero-height viewport
+ * as "nothing fits" and returns no rows, leaving the rail blank until some
+ * unrelated event (a scroll, a resize) happens to force a recount.
+ *
+ * Remounting is the direct fix: a new instance measures the container as it
+ * actually is. Nothing outside this component holds the instance, so the cost
+ * is a few row components, and it buys a rail that always paints.
+ */
+function Rail({
+  rows,
+  selectedId,
+  scrollRef,
+  select,
+  pasteSelected,
+  standDownFor,
+}: RailProps) {
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => (rows[index].type === "header" ? HEADER_H : ROW_H),
+    getItemKey: (index) => rows[index].key,
+    overscan: 10,
+    // Row heights are fixed, and this panel is hidden and shown rather than
+    // unmounted. Without caching, the `ResizeObserver` that measures each row
+    // reports 0 for all of them while the window is hidden, which wipes every
+    // measurement; the list then re-estimates on the way back in and the rows
+    // visibly jump. Caching keeps the known sizes and only re-measures rows
+    // that actually change.
+    useCachedMeasurements: true,
+  });
+
+  // Keep the keyboard-selected row inside the viewport.
+  useEffect(() => {
+    if (selectedId == null) return;
+    // Stands down right after a summon: that pass has already parked the rail
+    // at the top, and the newest row — the one now selected — is visible
+    // there. Scrolling it "into view" would undo that, and it would show: the
+    // row sits at index 1, since index 0 is its date-group header, and
+    // `align: "auto"` resolves to `"start"`, parking the rail one
+    // header-height down with "Today" scrolled off the top.
+    if (standDownFor.current === selectedId) return;
+    const index = rows.findIndex(
+      (r) => r.type === "item" && r.item.id === selectedId,
+    );
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
+  }, [selectedId, rows, virtualizer, standDownFor]);
+
+  // A fresh instance starts at offset zero, which is the reset the summon wants
+  // — but only the first row group would be in view if the viewport were
+  // mismeasured, so assert it once now that the size is known good.
+  useEffect(() => {
+    if (selectedId == null) return;
+    if (standDownFor.current !== selectedId) return;
+    virtualizer.scrollToOffset(0);
+  }, [selectedId, virtualizer, standDownFor]);
+
+  return (
+    <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map((virtualRow) => {
+        const row = rows[virtualRow.index];
+        return (
+          <div
+            key={virtualRow.key}
+            className="absolute left-0 top-0 w-full"
+            style={{ transform: `translateY(${virtualRow.start}px)` }}
+          >
+            {row.type === "header" ? (
+              // De-emphasised group heading: the same micro step as every
+              // other section label, one tone lighter than the row titles
+              // it introduces. The count is subordinate to the heading, so
+              // it drops a tone rather than a size.
+              <div className="flex h-8 items-center gap-2 px-2 text-micro font-semibold text-muted">
+                {row.label}
+                {row.count != null && (
+                  <span className="rounded-full bg-hover px-2 py-px text-micro font-medium text-faint">
+                    {row.count}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <EntryRow
+                item={row.item}
+                selected={row.item.id === selectedId}
+                onSelect={select}
+                onPaste={() => pasteSelected()}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
