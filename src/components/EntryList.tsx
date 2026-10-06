@@ -25,6 +25,7 @@ export function EntryList() {
   const view = useApp((s) => s.view);
   const query = useApp((s) => s.query);
   const selectedId = useApp((s) => s.selectedId);
+  const listEpoch = useApp((s) => s.listEpoch);
   const select = useApp((s) => s.select);
   const pasteSelected = useApp((s) => s.pasteSelected);
   const loading = useApp((s) => s.loading);
@@ -75,6 +76,20 @@ export function EntryList() {
     );
     if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" });
   }, [selectedId, rows, virtualizer]);
+
+  // Walk the rail back to the top when the panel is summoned.
+  //
+  // Deliberately *not* left to the effect above. `scrollToIndex` on the
+  // newest row lands on `scrollTop === 32`, not `0`: the row sits at index 1
+  // because index 0 is its date-group header, and `align: "auto"` resolves
+  // to "start", which parks the list exactly one header-height down with
+  // "Today" scrolled off the top.
+  //
+  // Declared second on purpose. Both effects fire on the same commit, React
+  // runs them in declaration order, and the reset has to have the last word.
+  useEffect(() => {
+    virtualizer.scrollToOffset(0);
+  }, [listEpoch, virtualizer]);
 
   return (
     <ScrollArea scrollRef={scrollRef} className="px-2 py-2">

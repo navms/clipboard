@@ -6,7 +6,7 @@ import { isTauri } from "../lib/ipc";
  * Bridges Rust-side push events into the store.
  *
  *   clip://changed           -> a capture landed, re-query the list
- *   panel://shown            -> panel summoned; reset filters, focus search
+ *   panel://shown            -> panel summoned; reset to a fresh panel, focus search
  *   accessibility://changed  -> the TCC grant was toggled while we ran
  *
  * A no-op in the browser preview.
@@ -28,19 +28,13 @@ export function useClipEvents() {
       const onShown = await listen<{ targetApp?: string | null }>(
         "panel://shown",
         (event) => {
-          useApp.setState({
-            query: "",
-            filter: "all",
-            // Land on the timeline, same as the type filter: a freshly
-            // summoned panel should look the same every time.
-            view: "history",
-            actionsOpen: false,
-            typeFilterOpen: false,
-            targetApp: event.payload?.targetApp ?? null,
-          });
+          // The store owns what a summoned panel looks like; this file stays
+          // the bridge between Rust's events and that intent. The focus
+          // dispatch stays out here because it is a DOM concern, and it has
+          // to land *after* the refresh or the caret goes to a stale list.
           void useApp
             .getState()
-            .refresh()
+            .summonPanel(event.payload?.targetApp ?? null)
             .then(() => window.dispatchEvent(new Event("rc:focus-search")));
         },
       );

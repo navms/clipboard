@@ -8,7 +8,6 @@ import type {
   Settings,
   TypeFilter,
 } from "../types/clip";
-import { MOCK_SELECTED_ID } from "../lib/mock";
 
 type Theme = Settings["theme"];
 
@@ -37,6 +36,16 @@ interface AppState {
    */
   noteEditingId: number | null;
 
+  /**
+   * Incremented every time the panel is summoned, *after* the fresh page
+   * has landed. `EntryList` watches it to walk the rail back to the top.
+   *
+   * A counter rather than a boolean: the panel can be shown any number of
+   * times, and "already true" would not re-trigger the effect the second
+   * time. Same reasoning as `noteEditingId` being an id and not a flag.
+   */
+  listEpoch: number;
+
   /** Foreground app captured when the panel was summoned; drives the
    *  "Paste to <app>" hint in the bottom bar. */
   targetApp: string | null;
@@ -50,6 +59,7 @@ interface AppState {
 
   init: () => Promise<void>;
   refresh: () => Promise<void>;
+  summonPanel: (targetApp: string | null) => Promise<void>;
   setQuery: (q: string) => void;
   setFilter: (f: TypeFilter) => void;
   setView: (v: HistoryView) => void;
@@ -243,6 +253,8 @@ export const useApp = create<AppState>((set, get) => ({
   typeFilterOpen: false,
   noteEditingId: null,
 
+  listEpoch: 0,
+
   targetApp: null,
   pasteBlocked: false,
   themeSetting: "system",
@@ -274,11 +286,18 @@ export const useApp = create<AppState>((set, get) => ({
 
     // Preselect a sensible row so the detail pane is never empty on first
     // paint.
+    //
+    // `?select=` is the only way to aim the preview at a specific entry (see
+    // `readSelectOverride`); everything else just takes the newest row. There
+    // used to be a `MOCK_SELECTED_ID` fallback here for the fixture id, but it
+    // pointed at a *pinned* row, which `deriveItems` filters out of this rail
+    // — so it could never match. Inside Tauri it was worse than dead: ids come
+    // from SQLite, so a cold start would land on whichever row happened to own
+    // that number. The screenshots were always driven by `?select=`.
     const items = get().items;
     const forced = readSelectOverride(items);
     const preferred =
       (forced != null ? items.find((i) => i.id === forced) : undefined) ??
-      items.find((i) => i.id === MOCK_SELECTED_ID) ??
       items[0];
     if (preferred) get().select(preferred.id);
   },
@@ -299,6 +318,53 @@ export const useApp = create<AppState>((set, get) => ({
     if (!items.some((i) => i.id === get().selectedId)) {
       get().select(items.length ? items[0].id : null);
     }
+  },
+
+  /**
+   * Puts the panel back the way a summon should find it.
+   *
+   * The panel is never torn down between openings — Rust only toggles
+   * `win.show()` / `win.hide()`, so the React tree, this store, the DOM
+   * scroll offset and the virtualiser instance all survive. Every piece of
+   * per-session state therefore has to be cleared *here* or it becomes the
+   * next opening's initial state, which is how the panel used to come back
+   * on whichever row was selected last time.
+   *
+   * `listEpoch` is bumped last, and only here. `refresh()` is async, so the
+   * row it lands on is not known until it resolves; bumping before the await
+   * would let `EntryList`'s scroll-into-view undo the reset on the very next
+   * commit.
+   */
+  async summonPanel(targetApp) {
+    set({
+      query: "",
+      filter: "all",
+      // Land on the timeline, same as the type filter: a freshly
+      // summoned panel should look the same every time.
+      view: "history",
+      actionsOpen: false,
+      typeFilterOpen: false,
+      // A note editor belongs to the row it was opened on. `NoteSection`
+      // closes itself when the selection moves *off* that row, so leaving
+      // this set would re-open the editor with its old draft whenever the
+      // newest row happened to be the one being edited.
+      noteEditingId: null,
+      targetApp,
+    });
+
+    // Cleared rather than re-pointed: it is the guard in `refresh` that
+    // picks the newest row, and it only fires when nothing is selected.
+    // Routed through `select` instead of a bare field because that is the
+    // one place that already knows a null selection has to take the
+    // fetched detail down with it.
+    get().select(null);
+
+    await get().refresh();
+
+    // The rail's scroll offset is DOM state the store cannot reach, so it is
+    // announced rather than applied: `EntryList` reads this and walks the
+    // list back to the top.
+    set({ listEpoch: get().listEpoch + 1 });
   },
 
   setQuery(q) {
@@ -375,6 +441,11 @@ export const useApp = create<AppState>((set, get) => ({
     const { items, selectedId } = get();
     if (!items.length) return;
     const idx = items.findIndex((i) => i.id === selectedId);
+    // With nothing selected there is no row to step away from, so both
+    // directions are inert. Letting the clamp below absorb `idx === -1`
+    // would send ↑ to the *first* row, which reads as a jump to the newest
+    // entry — the opposite of what ↑ means everywhere else in the list.
+    if (idx === -1) return;
     const next = Math.min(Math.max(idx + delta, 0), items.length - 1);
     if (next === idx) return;
     get().select(items[next].id);

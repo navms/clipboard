@@ -195,5 +195,4 @@ export function mockDetail(id: number): ClipDetail {
   return detail;
 }
 
-export const MOCK_SELECTED_ID = MOCK_ITEMS[1].id; // "Clipboard"
 export const MOCK_LONG_TEXT = LONG_TEXT;
