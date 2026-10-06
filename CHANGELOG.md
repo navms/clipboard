@@ -7,7 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Fixed
+
+**Reopening the panel no longer restores the previous selection.** The panel
+is a single resident window that is only ever hidden, never torn down, so the
+last selected row — and the rail's scroll offset — survived into the next
+opening. `panel://shown` reset the query, the type filter and the view but not
+the selection, and `refresh()` only reselects when the old row has fallen out
+of the list, which history rows never do. Every summon now clears the
+per-session state through a single store action and lands on the newest entry
+with the list scrolled back to the top. The scroll reset is explicit because
+`scrollToIndex` on the newest row parks the list one header-height down: that
+row sits at index 1, since index 0 is its date-group header, and `align:
+"auto"` resolves to `"start"`.
+
+**The arrow keys no longer select the first row when nothing is selected.**
+`moveSelection` clamped `findIndex`'s `-1` straight into `items[0]`, so ↑ sent
+you to the newest entry — the opposite of what ↑ means everywhere else in the
+list. With no row to step away from, both directions are now inert.
+
+**A browser-preview fixture id no longer reaches the real app.** The
+first-paint preselect preferred `MOCK_SELECTED_ID` unconditionally, so a cold
+start landed on whichever SQLite row happened to own id 2. It turned out to
+be unreachable in any case — it pointed at a pinned row, which the history
+rail filters out — so it is gone rather than fenced. Screenshots were always
+driven by `?select=`, which is unaffected.
 
 ## [0.1.3] — 2026-10-05
 
