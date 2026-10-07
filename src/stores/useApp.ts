@@ -330,10 +330,16 @@ export const useApp = create<AppState>((set, get) => ({
    * next opening's initial state, which is how the panel used to come back
    * on whichever row was selected last time.
    *
-   * `listEpoch` is bumped last, and only here. `refresh()` is async, so the
-   * row it lands on is not known until it resolves; bumping before the await
-   * would let `EntryList`'s scroll-into-view undo the reset on the very next
-   * commit.
+   * `listEpoch` is bumped in the same commit as the reset itself, *before*
+   * the `refresh()` await. The scroll offset is DOM state and needs no data
+   * to move, so waiting for the query only produces a visible flash: the rail
+   * renders once at the old offset, then jumps. Bumping early means the rail
+   * is already at the top by the time the first frame is painted.
+   *
+   * Bumping *early* is safe for the other effect in `EntryList` — the one
+   * that scrolls the selected row into view. It runs on the commit where
+   * `refresh()` lands the new selection, and being declared first, the reset
+   * still has the last word on that commit.
    */
   async summonPanel(targetApp) {
     set({
@@ -350,6 +356,11 @@ export const useApp = create<AppState>((set, get) => ({
       // newest row happened to be the one being edited.
       noteEditingId: null,
       targetApp,
+      // Announced, not applied: the rail's scroll offset is DOM state this
+      // store cannot reach, so `EntryList` reads this and walks the list back
+      // to the top. Same commit as the reset above, so the rail never paints
+      // at the stale offset.
+      listEpoch: get().listEpoch + 1,
     });
 
     // Cleared rather than re-pointed: it is the guard in `refresh` that
@@ -360,11 +371,6 @@ export const useApp = create<AppState>((set, get) => ({
     get().select(null);
 
     await get().refresh();
-
-    // The rail's scroll offset is DOM state the store cannot reach, so it is
-    // announced rather than applied: `EntryList` reads this and walks the
-    // list back to the top.
-    set({ listEpoch: get().listEpoch + 1 });
   },
 
   setQuery(q) {
