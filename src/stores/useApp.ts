@@ -498,7 +498,13 @@ export const useApp = create<AppState>((set, get) => ({
 
     const pool = get().pool.filter((i) => i.id !== id);
     rebuildIndex(pool);
-    const remaining = searchPool(pool, get().query);
+    // Re-derived through `deriveItems`, never `searchPool` directly: the rail's
+    // rows are view-dependent, and this was the one recompute site that skipped
+    // the view. Deleting on the Pinned tab therefore dropped the pinned
+    // partition and refilled the shelf with the whole history. `idx` above
+    // indexes `items` — the visible list — so the fallback below has to come
+    // from the same derivation, or it lands on an unrelated row.
+    const remaining = deriveItems(pool, get().query, get().view);
     set({ pool, items: remaining });
 
     const fallback = remaining[Math.min(idx, remaining.length - 1)];
