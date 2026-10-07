@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] — 2026-10-07
+
+The rail stops going blank when the panel comes back, and it stops jumping on
+the way there. Both symptoms were the same underlying staleness, and 0.1.4 fixed
+only half of it — that release made every summon reset the rail, but the reset
+could not take effect on a virtualiser that still believed the window had zero
+height.
+
+### Fixed
+
+**The rail no longer paints blank after reopening the panel.** The windowing
+half of the list caches the scroll container's height when it mounts and
+refreshes that cache only when the element's *identity* changes. This panel is
+a resident window that gets hidden rather than unmounted, so the element is
+always the same one, and the cache keeps whatever the hidden window reported —
+zero. A zero-height viewport makes the range calculation bail out and return
+nothing, so the rail stayed blank until some unrelated event forced a recount.
+In practice: blank on reopening, cleared by scrolling.
+
+Remounting the windowing half is the direct cure, and the only one available:
+the cached rect is written once at mount, so a new instance measuring the
+container as it actually is is the sole way to refresh it. The remount is keyed
+on the measured viewport height plus the summon epoch, so a rail that returns at
+a different size is rebuilt and one that did not is left alone. A fresh instance
+also starts at offset zero, which the reset the summon wants gets for free.
+
+**The rail no longer jumps from the old position to the top on its way back.**
+The reset waited for the clip query to resolve before moving the scroll offset,
+which cost a frame painted at the previous position. The offset is DOM state
+and needs no data to move, so it now resets in the same commit as the rest of
+the per-session state.
+
+### Changed
+
+- The rail is split into an inner component so it can be remounted, and its
+  scroll-into-view now stands down for the selection the summon just landed on.
+  Declaring the reset second was never sufficient: the two effects do not run in
+  the same commit, so the ordering was never going to win.
+
 ## [0.1.4] — 2026-10-06
 
 A summoned panel lands where it should, and the panel's own idea of "where
@@ -223,7 +262,8 @@ First public release.
   Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
   `tauri`, `wry`, `plist` and others.
 
-[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/navms/clipboard/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/navms/clipboard/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/navms/clipboard/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/navms/clipboard/compare/v0.1.1...v0.1.2
