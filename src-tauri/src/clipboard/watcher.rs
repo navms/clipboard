@@ -83,7 +83,10 @@ impl ClipboardHandler for CaptureHandler {
 /// Runs off the watcher's own thread, which is the entire point — see the note
 /// on [`Job`] for what used to happen in its place.
 fn process(app: &AppHandle, state: &Arc<AppState>, job: Job) -> Result<()> {
-    let Job { mut snapshot, source } = job;
+    let Job {
+        mut snapshot,
+        source,
+    } = job;
 
     let Some(kind) = classify::classify(&snapshot) else {
         return Ok(());
@@ -182,12 +185,7 @@ fn process(app: &AppHandle, state: &Arc<AppState>, job: Job) -> Result<()> {
     Ok(())
 }
 
-fn run_worker(
-    app: AppHandle,
-    state: Arc<AppState>,
-    jobs: Receiver<Job>,
-    depth: Arc<AtomicUsize>,
-) {
+fn run_worker(app: AppHandle, state: Arc<AppState>, jobs: Receiver<Job>, depth: Arc<AtomicUsize>) {
     // One at a time, and in the order they were observed. Handling two at once
     // would be unsound at the database level, and finishing them out of order
     // would make `created_at` lie about which copy came first — the list is
