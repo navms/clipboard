@@ -99,12 +99,23 @@ pub fn show_panel(app: &AppHandle, state: &Arc<AppState>) {
     // above matters: it no-ops until `show` has actually landed.
     let _ = win.set_focus();
 
-    let _ = app.emit(
-        PANEL_SHOWN,
-        PanelShown {
-            target_app: target_name,
-        },
-    );
+    // Emitted on the next turn of the run loop rather than inline. `show()`
+    // only *asks* AppKit to order the window in; the webview's geometry is
+    // not necessarily restored by the time this function returns, and the
+    // frontend's response to this event is to re-measure the list viewport.
+    // Measuring a window that is still waking reads zero, and a zero cached
+    // there was the blank rail. One turn costs nothing — the panel is not
+    // interactive until the next frame anyway — and buys a webview whose
+    // layout has caught up with the event.
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = handle.emit(
+            PANEL_SHOWN,
+            PanelShown {
+                target_app: target_name,
+            },
+        );
+    });
 }
 
 /// Puts the panel away, banking its position if the user chose one.

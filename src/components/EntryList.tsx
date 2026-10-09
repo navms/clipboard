@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual";
 import { useApp } from "../stores/useApp";
 import { groupByDate } from "../lib/format";
 import type { ClipListItem, DateGroup } from "../types/clip";
@@ -12,6 +12,36 @@ const ROW_H = 40;
 type Row =
   | { type: "header"; label: string; count: number | null; key: string }
   | { type: "item"; item: ClipListItem; key: string };
+
+/**
+ * The last viewport rect worth believing in, and an observer that refuses to
+ * report anything smaller than belief.
+ *
+ * A hidden window is not a zero-sized window, but WebKit reports it as one:
+ * the `ResizeObserver` delivers a zero rect on the way out and is not
+ * guaranteed to deliver again on the way back, and a freshly mounted
+ * virtualiser's synchronous first read can land while the waking window
+ * still reports zero. Every one of those zeros ends up in the virtualiser's
+ * cached `scrollRect`, and a zero-height viewport makes the range
+ * calculation bail out and return nothing — the blank rail.
+ *
+ * Zero is never a size worth caching (the panel is 760x480, fixed), so this
+ * wrapper drops it and keeps the last real reading. A virtualiser fed
+ * through here can never strand its `scrollRect` at zero: either a real
+ * measurement has already landed and is kept, or none has and `getSize()`
+ * falls back to `initialRect` — which is why the seed below has to be
+ * non-zero. It only needs to be in the right ballpark: it steadies the
+ * windowing until the first real measurement arrives, and the panel's size
+ * never changes after that.
+ */
+let lastViewportRect = { width: 272, height: 320 };
+
+const observeViewportRect: typeof observeElementRect = (instance, cb) =>
+  observeElementRect(instance, (rect) => {
+    if (rect.height <= 0) return;
+    lastViewportRect = rect;
+    cb(rect);
+  });
 
 /**
  * Tracks the scroll container's height, and re-reads it whenever the panel
@@ -227,6 +257,12 @@ function Rail({
     estimateSize: (index) => (rows[index].type === "header" ? HEADER_H : ROW_H),
     getItemKey: (index) => rows[index].key,
     overscan: 10,
+    // See `observeViewportRect` above: a hidden-then-woken window reports a
+    // zero viewport and may never report again; the zero is dropped and the
+    // last real rect (or the seed) stands in, so `outerSize` can never be
+    // zero and the rail can never go blank over a stale measurement.
+    observeElementRect: observeViewportRect,
+    initialRect: lastViewportRect,
     // Row heights are fixed, and this panel is hidden and shown rather than
     // unmounted. Without caching, the `ResizeObserver` that measures each row
     // reports 0 for all of them while the window is hidden, which wipes every
