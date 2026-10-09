@@ -5,6 +5,52 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] — 2026-10-09
+
+The rail stops re-rendering on every scroll, a note opened from the keyboard
+stops erasing itself, and the footer shows the app's own icon.
+
+### Fixed
+
+**The note editor no longer wipes a note when opened from the keyboard.** The
+draft was only seeded when the editor was opened by a click. Opened from
+<kbd>⌘</kbd><kbd>D</kbd> or the <kbd>⌘</kbd><kbd>K</kbd> menu it was not, so a
+filled note came up as an empty box — and the blur-to-save then committed that
+empty draft, silently erasing it. The draft is seeded however the editor opens.
+
+**A double pin toggles again.** The pin action read the entry's state and then
+awaited the write, so a second press inside that window sent the same value and
+the pin never came back. It now flips locally first and lets a refresh reconcile.
+
+**Startup reconciliation no longer deletes pinned entries.** It dropped any row
+whose asset files had vanished, without the `pinned` exemption that `prune` and
+`clear` both honour — so a pinned screenshot whose file had gone quietly
+disappeared. Pinned rows are now left alone.
+
+**The post-delete selection steps to a neighbour** instead of clearing itself
+when the deleted row was not in the current view.
+
+### Changed
+
+**The history list stops re-rendering on every scroll.** `EntryRow`'s paste
+handler was rebuilt on every render, which defeated its `memo` — every scroll
+frame and every arrow press re-rendered the whole visible window. The handler is
+now stable, and search folds each row once when the index is built instead of on
+every keystroke.
+
+**Capture and query work moved off the hot path.** The watcher moves a large
+paste's text out of the snapshot instead of cloning it, `list_clips` runs off the
+main thread, and a persist queue that backs up past a threshold now logs once.
+The queue stays unbounded on purpose: a dropped capture would be lost user data.
+
+**The footer carries the app's own icon.** It is the bundle icon rather than a
+redrawn mark, with a drop-shadow so its white tile still reads on the white bar.
+
+### Removed
+
+- A dead mock export, a `matchMedia` listener that was re-added on every init,
+  and the actions-menu keydown listener's re-registration on every cursor move.
+
 ## [0.1.5] — 2026-10-07
 
 The rail stops going blank when the panel comes back, and it stops jumping on
@@ -262,7 +308,8 @@ First public release.
   Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
   `tauri`, `wry`, `plist` and others.
 
-[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/navms/clipboard/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/navms/clipboard/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/navms/clipboard/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/navms/clipboard/compare/v0.1.2...v0.1.3
