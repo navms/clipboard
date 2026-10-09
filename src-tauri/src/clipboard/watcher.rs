@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 
@@ -25,10 +26,19 @@ struct Job {
     source: Option<AppInfo>,
 }
 
+/// Queue depth past which the "a burst resolves itself" assumption behind the
+/// unbounded channel is worth a warning. Not a limit — nothing is dropped on
+/// account of crossing it.
+const QUEUE_WARN_DEPTH: usize = 32;
+
 struct CaptureHandler {
     state: Arc<AppState>,
     ctx: ClipboardContext,
     jobs: Sender<Job>,
+    /// Jobs handed to the worker but not yet taken off the queue.
+    depth: Arc<AtomicUsize>,
+    /// Latches the backlog warning so a sustained burst logs it once.
+    warned: Arc<AtomicBool>,
 }
 
 impl ClipboardHandler for CaptureHandler {
@@ -48,6 +58,22 @@ impl ClipboardHandler for CaptureHandler {
 
         if self.jobs.send(job).is_err() {
             eprintln!("[clipboard] the persist worker is gone; dropping this change");
+            return;
+        }
+
+        // The queue is unbounded on purpose (see `spawn`), on the assumption
+        // that a burst resolves itself and that a backlog is essentially never
+        // more than one or two deep. This makes that assumption observable
+        // rather than merely asserted: past `QUEUE_WARN_DEPTH` the premise is
+        // wrong — the worker is not keeping up and the queue is holding
+        // decoded images — and we want to hear about it, once.
+        let depth = self.depth.fetch_add(1, Ordering::Relaxed) + 1;
+        if depth > QUEUE_WARN_DEPTH && !self.warned.swap(true, Ordering::Relaxed) {
+            eprintln!(
+                "[clipboard] persist backlog reached {depth} jobs; captures are \
+                 outrunning the worker and the unbounded queue may be holding \
+                 decoded images"
+            );
         }
     }
 }
@@ -57,7 +83,7 @@ impl ClipboardHandler for CaptureHandler {
 /// Runs off the watcher's own thread, which is the entire point — see the note
 /// on [`Job`] for what used to happen in its place.
 fn process(app: &AppHandle, state: &Arc<AppState>, job: Job) -> Result<()> {
-    let Job { snapshot, source } = job;
+    let Job { mut snapshot, source } = job;
 
     let Some(kind) = classify::classify(&snapshot) else {
         return Ok(());
@@ -75,7 +101,7 @@ fn process(app: &AppHandle, state: &Arc<AppState>, job: Job) -> Result<()> {
         ClipKind::Image => {
             let image = snapshot
                 .image
-                .as_ref()
+                .take()
                 .ok_or_else(|| AppError::Other("image flavour was empty".into()))?;
             let stored = crate::media::persist(
                 &state.data_dir,
@@ -94,26 +120,33 @@ fn process(app: &AppHandle, state: &Arc<AppState>, job: Job) -> Result<()> {
             content_text = Some(snapshot.files.join("\n"));
             hash::files(&snapshot.files)
         }
+        // The arms below *move* the snapshot's fields out rather than cloning
+        // them: a large paste used to be copied two or three times over, per
+        // capture, for no reason. Order matters in `Text` — `content_html`
+        // has to take the html before the text fallback can reach for it.
         ClipKind::Link => {
-            let text = snapshot.text.clone().unwrap_or_default();
-            content_html = snapshot.html.clone();
-            content_text = Some(text.clone());
-            hash::link(&text)
+            content_html = snapshot.html.take();
+            let text = snapshot.text.take().unwrap_or_default();
+            let hash = hash::link(&text);
+            content_text = Some(text);
+            hash
         }
         ClipKind::Color => {
-            let text = snapshot.text.clone().unwrap_or_default().trim().to_string();
-            content_text = Some(text.clone());
-            hash::color(&text)
+            let text = snapshot.text.take().unwrap_or_default().trim().to_string();
+            let hash = hash::color(&text);
+            content_text = Some(text);
+            hash
         }
         ClipKind::Text => {
+            content_html = snapshot.html.take();
             let text = snapshot
                 .text
-                .clone()
-                .or_else(|| snapshot.html.clone())
+                .take()
+                .or_else(|| content_html.clone())
                 .unwrap_or_default();
-            content_html = snapshot.html.clone();
-            content_text = Some(text.clone());
-            hash::text(&text)
+            let hash = hash::text(&text);
+            content_text = Some(text);
+            hash
         }
     };
 
@@ -149,12 +182,21 @@ fn process(app: &AppHandle, state: &Arc<AppState>, job: Job) -> Result<()> {
     Ok(())
 }
 
-fn run_worker(app: AppHandle, state: Arc<AppState>, jobs: Receiver<Job>) {
+fn run_worker(
+    app: AppHandle,
+    state: Arc<AppState>,
+    jobs: Receiver<Job>,
+    depth: Arc<AtomicUsize>,
+) {
     // One at a time, and in the order they were observed. Handling two at once
     // would be unsound at the database level, and finishing them out of order
     // would make `created_at` lie about which copy came first — the list is
     // nothing but that ordering.
     for job in jobs {
+        // Against the handler's backlog gauge, and decremented on arrival
+        // rather than on completion: it measures how far the queue has grown,
+        // not how long one capture takes to persist.
+        depth.fetch_sub(1, Ordering::Relaxed);
         if let Err(err) = process(&app, &state, job) {
             eprintln!("[clipboard] capture failed: {err}");
         }
@@ -204,15 +246,27 @@ pub fn spawn(app: AppHandle, state: Arc<AppState>) {
             // essentially always.
             let (jobs, inbox) = mpsc::channel::<Job>();
 
+            // Shared with the handler so the queue's depth is observable; see
+            // `QUEUE_WARN_DEPTH`. Nothing reads the gauge to make a decision —
+            // it only ever produces a log line.
+            let depth = Arc::new(AtomicUsize::new(0));
+            let warned = Arc::new(AtomicBool::new(false));
+
             std::thread::Builder::new()
                 .name("clipboard-persist".into())
                 .spawn({
-                    let (app, state) = (app.clone(), state.clone());
-                    move || run_worker(app, state, inbox)
+                    let (app, state, depth) = (app.clone(), state.clone(), depth.clone());
+                    move || run_worker(app, state, inbox, depth)
                 })
                 .ok();
 
-            watcher.add_handler(CaptureHandler { state, ctx, jobs });
+            watcher.add_handler(CaptureHandler {
+                state,
+                ctx,
+                jobs,
+                depth,
+                warned,
+            });
             // Held for the lifetime of the loop so the watcher stays alive.
             let _shutdown = watcher.get_shutdown_channel();
             watcher.start_watch();

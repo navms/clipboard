@@ -52,6 +52,12 @@ export function NoteSection() {
 
   useEffect(() => {
     if (!editing) return;
+    // Seed the draft here rather than only in `startEditing`. The editor also
+    // opens from Cmd+D and the Cmd+K menu, which reach the store's
+    // `beginNoteEdit` without going through `startEditing` — so a filled note
+    // opened that way used to show an empty box, and the blur-to-save then
+    // committed that empty draft and silently erased the note.
+    setDraft(saved ?? "");
     const area = areaRef.current;
     if (!area) return;
     area.focus();
@@ -67,10 +73,7 @@ export function NoteSection() {
     await setDescription(item.id, trimmed === "" ? null : trimmed);
   };
 
-  const startEditing = () => {
-    setDraft(saved ?? "");
-    beginNoteEdit();
-  };
+  const startEditing = () => beginNoteEdit();
 
   if (editing) {
     return (

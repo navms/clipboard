@@ -391,19 +391,34 @@ pub fn payload(conn: &Connection, id: i64) -> Result<Option<ClipPayload>> {
     Ok(found)
 }
 
-/// A row's id beside whichever asset paths it holds: `(id, original, thumb)`.
+/// A row's id, its pinned flag, and whichever asset paths it holds.
 ///
 /// Named rather than spelled out because the bare tuple gives no clue which
 /// `Option` holds the original and which the thumbnail, and swapping the two
 /// at the call site compiles perfectly while deleting histories instead of
-/// rebuilding thumbnails.
-pub type AssetRow = (i64, Option<String>, Option<String>);
+/// rebuilding thumbnails. `pinned` rides along so startup reconciliation can
+/// leave protected rows alone — the contract `prune` and `clear` already
+/// honour.
+pub struct AssetRow {
+    pub id: i64,
+    pub image_path: Option<String>,
+    pub thumb_path: Option<String>,
+    pub pinned: bool,
+}
 
-/// Reads a row's kind + asset paths so startup reconciliation can spot
-/// records whose files vanished from disk.
+/// Reads a row's id, pinned flag and asset paths so startup reconciliation can
+/// spot records whose files vanished from disk.
 pub fn rows_with_assets(conn: &Connection) -> Result<Vec<AssetRow>> {
-    let mut stmt = conn.prepare_cached("SELECT id, image_path, thumb_path FROM clippings")?;
-    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+    let mut stmt =
+        conn.prepare_cached("SELECT id, image_path, thumb_path, pinned FROM clippings")?;
+    let rows = stmt.query_map([], |row| {
+        Ok(AssetRow {
+            id: row.get(0)?,
+            image_path: row.get(1)?,
+            thumb_path: row.get(2)?,
+            pinned: row.get::<_, i64>(3)? != 0,
+        })
+    })?;
     let mut out = Vec::new();
     for row in rows {
         out.push(row?);

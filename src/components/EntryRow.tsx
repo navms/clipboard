@@ -8,7 +8,7 @@ interface Props {
   item: ClipListItem;
   selected: boolean;
   onSelect: (id: number) => void;
-  onPaste: (id: number) => void;
+  onPaste: () => void;
 }
 
 export const EntryRow = memo(function EntryRow({
@@ -21,7 +21,7 @@ export const EntryRow = memo(function EntryRow({
     <button
       type="button"
       onClick={() => onSelect(item.id)}
-      onDoubleClick={() => onPaste(item.id)}
+      onDoubleClick={onPaste}
       className={cn(
         "group flex h-10 w-full items-center gap-3 rounded-lg px-2 text-left",
         "transition-colors duration-75",

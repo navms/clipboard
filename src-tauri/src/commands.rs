@@ -31,8 +31,17 @@ pub struct SettingsPatch {
 // Reads
 // --------------------------------------------------------------------------
 
+/// `async` on purpose: a sync `#[tauri::command]` is dispatched on the main
+/// thread, and this read fires on every `clip://changed` — i.e. on every
+/// capture — where the SQLite scan and the per-path joins below would jank the
+/// panel on a large history. `async` hands it to the runtime instead. There is
+/// no `.await` inside, so no lock is held across one.
+///
+/// `get_clip_detail` deliberately stays sync: `appicon::resolve` needs the main
+/// thread, both for AppKit and because its cache write relies on main-thread
+/// serialisation.
 #[tauri::command]
-pub fn list_clips(
+pub async fn list_clips(
     state: State<'_, Arc<AppState>>,
     query: Option<ClipQuery>,
 ) -> Result<Vec<ClipListItem>> {
