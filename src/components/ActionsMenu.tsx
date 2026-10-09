@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   ClipboardPaste,
   Copy,
@@ -39,6 +39,11 @@ export function ActionsMenu() {
   const targetApp = useApp((s) => s.targetApp);
 
   const [cursor, setCursor] = useState(0);
+  // Read through a ref by the keydown handler below, so that handler does not
+  // have to be torn down and re-added on every arrow press — which is what
+  // listing `cursor` in its dependencies used to do.
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
 
   const clip: ClipDetail | null = useMemo(() => {
     const base = items.find((i) => i.id === selectedId) ?? null;
@@ -143,7 +148,7 @@ export function ActionsMenu() {
       } else if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        const action = actions[cursor];
+        const action = actions[cursorRef.current];
         if (action) {
           setOpen(false);
           action.run();
@@ -152,7 +157,7 @@ export function ActionsMenu() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [open, actions, cursor, setOpen]);
+  }, [open, actions, setOpen]);
 
   if (!open) return null;
 

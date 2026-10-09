@@ -251,6 +251,13 @@ function Rail({
   pasteSelected,
   standDownFor,
 }: RailProps) {
+  // Stable identity is load-bearing: `EntryRow` is `memo`ised, and an inline
+  // arrow passed as `onPaste` was a fresh function every render — which is
+  // every scroll frame and every selection move — so the memo never held and
+  // the whole visible window re-rendered on each one. `pasteSelected` comes
+  // from the store and is referentially stable, so this callback is too.
+  const handlePaste = useCallback(() => pasteSelected(), [pasteSelected]);
+
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -325,7 +332,7 @@ function Rail({
                 item={row.item}
                 selected={row.item.id === selectedId}
                 onSelect={select}
-                onPaste={() => pasteSelected()}
+                onPaste={handlePaste}
               />
             )}
           </div>

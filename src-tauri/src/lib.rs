@@ -171,19 +171,28 @@ const BLUR_GRACE: Duration = Duration::from_millis(120);
 /// went — the panel draws the thumbnail — and either kind of orphan is at once
 /// unreachable and unrepairable, so the row and whatever assets it still had
 /// go together.
+///
+/// Pinned rows are the exception. `prune` and `clear` both treat `pinned = 1`
+/// as protected, and reconciliation is not a reason to overrule the user's
+/// "keep this" — deleting a kept entry behind their back is worse than the
+/// broken thumbnail it would have shown.
 fn reconcile_assets(state: &Arc<AppState>) {
     let Ok(rows) = state.db.with(repo::rows_with_assets) else {
         return;
     };
 
-    for (id, image, thumb) in rows {
-        let orphaned = [image.as_deref(), thumb.as_deref()]
+    for row in rows {
+        if row.pinned {
+            continue;
+        }
+
+        let orphaned = [row.image_path.as_deref(), row.thumb_path.as_deref()]
             .into_iter()
             .flatten()
             .any(|rel| !state.data_dir.join(rel).exists());
 
         if orphaned {
-            drop_row(state, id);
+            drop_row(state, row.id);
         }
     }
 }

@@ -133,6 +133,16 @@ function readPasteOverride(): boolean {
   return new URLSearchParams(window.location.search).get("paste") === "blocked";
 }
 
+/**
+ * Preview-only: `?edit` opens the note editor on the selected entry, so the
+ * editing state can be screenshotted without driving the keyboard. No effect
+ * inside Tauri.
+ */
+function readEditOverride(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has("edit");
+}
+
 function applyTheme(setting: Theme): "light" | "dark" {
   const resolved = setting === "system" ? systemTheme() : setting;
   if (typeof document !== "undefined") {
@@ -140,6 +150,17 @@ function applyTheme(setting: Theme): "light" | "dark" {
   }
   return resolved;
 }
+
+/**
+ * The OS colour-scheme listener, held at module scope.
+ *
+ * `init` runs twice under React StrictMode, and a bare `addEventListener` in
+ * there installed a second copy of the listener each time with no way to drop
+ * the first. Keeping the pair here lets a re-run remove the previous one
+ * before adding its replacement.
+ */
+let themeQuery: MediaQueryList | null = null;
+let onSystemThemeChange: (() => void) | null = null;
 
 // --------------------------------------------------------------------------
 // Client-side search
@@ -152,6 +173,20 @@ function applyTheme(setting: Theme): "light" | "dark" {
  */
 let fuse: Fuse<ClipListItem> | null = null;
 
+/**
+ * Lower-cased `title` / `description` per entry, keyed by id.
+ *
+ * Kept beside the Fuse index so the substring pass in `searchPool` never
+ * re-folds the whole page on every keystroke: at 500 rows an unbuffered pass
+ * was ~1000 `toLowerCase` allocations per character typed. `rebuildIndex` is
+ * the one place a fresh `pool` arrives (`refresh`, `setDescription`, `remove`),
+ * so the two indices can never drift apart.
+ */
+let lowerIndex = new Map<
+  number,
+  { title: string; description: string | null }
+>();
+
 function rebuildIndex(pool: ClipListItem[]) {
   fuse = new Fuse(pool, {
     // `description` is searchable too: a note is often the only place the
@@ -162,6 +197,15 @@ function rebuildIndex(pool: ClipListItem[]) {
     ignoreLocation: true,
     minMatchCharLength: 1,
   });
+  lowerIndex = new Map(
+    pool.map((item) => [
+      item.id,
+      {
+        title: item.title.toLowerCase(),
+        description: item.description?.toLowerCase() ?? null,
+      },
+    ]),
+  );
 }
 
 function searchPool(pool: ClipListItem[], query: string): ClipListItem[] {
@@ -172,11 +216,17 @@ function searchPool(pool: ClipListItem[], query: string): ClipListItem[] {
   // Fuse's tokenizer splits on whitespace and would miss them entirely.
   // The note is checked on the same footing as the title — for a CJK note,
   // this substring path is the only thing that will ever match it.
-  const exact = pool.filter(
-    (item) =>
-      item.title.toLowerCase().includes(needle) ||
-      item.description?.toLowerCase().includes(needle) === true,
-  );
+  const exact = pool.filter((item) => {
+    const lower = lowerIndex.get(item.id);
+    // The fallback only fires if a caller ever hands us an id the index has
+    // not seen; folding that one row is cheap insurance against silently
+    // dropping a hit.
+    const title = lower ? lower.title : item.title.toLowerCase();
+    const description = lower
+      ? lower.description
+      : item.description?.toLowerCase() ?? null;
+    return title.includes(needle) || description?.includes(needle) === true;
+  });
   const seen = new Set(exact.map((item) => item.id));
 
   const fuzzy = (fuse?.search(query) ?? [])
@@ -268,13 +318,16 @@ export const useApp = create<AppState>((set, get) => ({
     set({ themeSetting: setting, resolvedTheme: resolved });
 
     if (typeof window !== "undefined" && window.matchMedia) {
-      window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .addEventListener("change", () => {
-          if (get().themeSetting === "system") {
-            set({ resolvedTheme: applyTheme("system") });
-          }
-        });
+      if (themeQuery && onSystemThemeChange) {
+        themeQuery.removeEventListener("change", onSystemThemeChange);
+      }
+      themeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      onSystemThemeChange = () => {
+        if (get().themeSetting === "system") {
+          set({ resolvedTheme: applyTheme("system") });
+        }
+      };
+      themeQuery.addEventListener("change", onSystemThemeChange);
     }
 
     await get().refresh();
@@ -300,6 +353,10 @@ export const useApp = create<AppState>((set, get) => ({
       (forced != null ? items.find((i) => i.id === forced) : undefined) ??
       items[0];
     if (preferred) get().select(preferred.id);
+
+    // `beginNoteEdit` reads `selectedId`, so it has to run after the selection
+    // above has landed.
+    if (readEditOverride()) get().beginNoteEdit();
   },
 
   async refresh() {
@@ -460,7 +517,20 @@ export const useApp = create<AppState>((set, get) => ({
   async togglePin(id) {
     const item = get().pool.find((i) => i.id === id);
     if (!item) return;
-    await ipc.pinClip(id, !item.pinned);
+    const next = !item.pinned;
+
+    // Flip locally *before* the round trip. Cmd+P is easy to hit twice, and
+    // reading `pinned` off the pool and then awaiting the write left the
+    // second press looking at the pre-first-press value — so it sent the same
+    // one and the pin never came back. The optimistic flip makes the second
+    // press see the first press's result. `refresh()` reconciles with the
+    // server afterwards, which also unwinds the flip if the write failed.
+    const pool = get().pool.map((i) =>
+      i.id === id ? { ...i, pinned: next } : i,
+    );
+    set({ pool, items: deriveItems(pool, get().query, get().view) });
+
+    await ipc.pinClip(id, next);
     await get().refresh();
   },
 
@@ -507,7 +577,10 @@ export const useApp = create<AppState>((set, get) => ({
     const remaining = deriveItems(pool, get().query, get().view);
     set({ pool, items: remaining });
 
-    const fallback = remaining[Math.min(idx, remaining.length - 1)];
+    // Clamped at 0 as well as at the end: `idx` is -1 whenever the deleted row
+    // was not in the current view, and `remaining[-1]` is `undefined`, which
+    // silently cleared the selection instead of stepping to a neighbour.
+    const fallback = remaining[Math.max(0, Math.min(idx, remaining.length - 1))];
     get().select(fallback ? fallback.id : null);
   },
 

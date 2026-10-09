@@ -162,8 +162,6 @@ export const MOCK_ITEMS: ClipListItem[] = [
   }),
 ];
 
-const LONG_TEXT = "Clipboard";
-
 export function mockDetail(id: number): ClipDetail {
   const base = MOCK_ITEMS.find((i) => i.id === id) ?? MOCK_ITEMS[0];
   const text =
@@ -194,5 +192,3 @@ export function mockDetail(id: number): ClipDetail {
 
   return detail;
 }
-
-export const MOCK_LONG_TEXT = LONG_TEXT;
