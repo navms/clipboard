@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] — 2026-10-10
+
+Arrow keys walk the search results in the order those results are drawn.
+
+### Fixed
+
+**↑/↓ follow the rail, not the match order.** A search in History returned its
+rows in match order — substring hits first, then Fuse's relevance scores —
+while the rail drew them bucketed by date, Pinned first. Stepping by index over
+that match order therefore moved the selection to rows nowhere near the
+highlighted one on screen. Browsing never showed it: the pool arrives
+`pinned DESC, created_at DESC`, an order the date grouping happens to preserve.
+The grouping now has one owner (`railGroups`), and everything that steps to a
+neighbour — the arrow keys, and the selection a delete leaves behind — walks
+its flattened order (`railOrder`). A delete now lands on the row that takes the
+deleted one's place instead of on an unrelated row.
+
 ## [0.1.6] — 2026-10-09
 
 The rail stops re-rendering on every scroll, a note opened from the keyboard
@@ -308,7 +325,8 @@ First public release.
   Copies at 0.21.7 and 0.22.1 remain in the tree, pulled in transitively by
   `tauri`, `wry`, `plist` and others.
 
-[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/navms/clipboard/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/navms/clipboard/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/navms/clipboard/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/navms/clipboard/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/navms/clipboard/compare/v0.1.3...v0.1.4
