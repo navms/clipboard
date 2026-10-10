@@ -1,6 +1,7 @@
 import Fuse from "fuse.js";
 import { create } from "zustand";
 import * as ipc from "../lib/ipc";
+import { railOrder } from "../lib/format";
 import type {
   ClipDetail,
   ClipListItem,
@@ -501,17 +502,23 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   moveSelection(delta) {
-    const { items, selectedId } = get();
+    const { items, view, selectedId } = get();
     if (!items.length) return;
-    const idx = items.findIndex((i) => i.id === selectedId);
+    // Stepped over `railOrder`, not `items`: the two are the same list only
+    // while browsing. Once a query is in play they are not — `items` is in
+    // match order (substring hits, then Fuse scores) and the rail re-buckets it
+    // by date, so walking `items` sent ↑/↓ to rows that were nowhere near the
+    // highlighted one on screen.
+    const order = railOrder(items, view);
+    const idx = order.findIndex((i) => i.id === selectedId);
     // With nothing selected there is no row to step away from, so both
     // directions are inert. Letting the clamp below absorb `idx === -1`
     // would send ↑ to the *first* row, which reads as a jump to the newest
     // entry — the opposite of what ↑ means everywhere else in the list.
     if (idx === -1) return;
-    const next = Math.min(Math.max(idx + delta, 0), items.length - 1);
+    const next = Math.min(Math.max(idx + delta, 0), order.length - 1);
     if (next === idx) return;
-    get().select(items[next].id);
+    get().select(order[next].id);
   },
 
   async togglePin(id) {
@@ -562,8 +569,11 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   async remove(id) {
-    const { items } = get();
-    const idx = items.findIndex((i) => i.id === id);
+    const { items, view } = get();
+    // Also over `railOrder`: `idx` is only ever used to pick the row that takes
+    // the deleted one's place, and that has to be a visual neighbour.
+    const order = railOrder(items, view);
+    const idx = order.findIndex((i) => i.id === id);
     await ipc.deleteClip(id);
 
     const pool = get().pool.filter((i) => i.id !== id);
@@ -571,16 +581,16 @@ export const useApp = create<AppState>((set, get) => ({
     // Re-derived through `deriveItems`, never `searchPool` directly: the rail's
     // rows are view-dependent, and this was the one recompute site that skipped
     // the view. Deleting on the Pinned tab therefore dropped the pinned
-    // partition and refilled the shelf with the whole history. `idx` above
-    // indexes `items` — the visible list — so the fallback below has to come
-    // from the same derivation, or it lands on an unrelated row.
-    const remaining = deriveItems(pool, get().query, get().view);
+    // partition and refilled the shelf with the whole history.
+    const remaining = deriveItems(pool, get().query, view);
     set({ pool, items: remaining });
 
+    // Same order as `idx` above, or the fallback selects an unrelated row.
     // Clamped at 0 as well as at the end: `idx` is -1 whenever the deleted row
-    // was not in the current view, and `remaining[-1]` is `undefined`, which
+    // was not in the current view, and `rail[-1]` is `undefined`, which
     // silently cleared the selection instead of stepping to a neighbour.
-    const fallback = remaining[Math.max(0, Math.min(idx, remaining.length - 1))];
+    const rail = railOrder(remaining, view);
+    const fallback = rail[Math.max(0, Math.min(idx, rail.length - 1))];
     get().select(fallback ? fallback.id : null);
   },
 
