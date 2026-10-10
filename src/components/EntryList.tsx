@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observeElementRect, useVirtualizer } from "@tanstack/react-virtual";
 import { useApp } from "../stores/useApp";
-import { groupByDate } from "../lib/format";
-import type { ClipListItem, DateGroup } from "../types/clip";
+import { railGroups } from "../lib/format";
+import type { ClipListItem } from "../types/clip";
 import { EntryRow } from "./EntryRow";
 import { ScrollArea } from "./common/ScrollArea";
 
@@ -131,16 +131,7 @@ export function EntryList() {
   const viewportHeight = useViewportHeight(scrollRef, listEpoch);
 
   const rows = useMemo<Row[]>(() => {
-    // The Pinned rail is a shelf, not a timeline: every row is pinned by
-    // definition, so date grouping would only ever produce one meaningless
-    // bucket per day. It gets a single header — which also carries the count,
-    // the same as the Pinned group does over in History.
-    const groups: DateGroup<ClipListItem>[] =
-      view === "pinned"
-        ? items.length
-          ? [{ label: "Pinned", items }]
-          : []
-        : groupByDate(items);
+    const groups = railGroups(items, view);
 
     const out: Row[] = [];
     for (const group of groups) {

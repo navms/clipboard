@@ -1,4 +1,4 @@
-import type { ClipListItem, DateGroup } from "../types/clip";
+import type { ClipListItem, DateGroup, HistoryView } from "../types/clip";
 
 /** Renders an epoch timestamp as "Today at 20:49:09". */
 export function formatCopied(ts: number): string {
@@ -81,6 +81,43 @@ export function groupByDate(items: ClipListItem[]): DateGroup<ClipListItem>[] {
   }
 
   return buckets.filter((b) => b.items.length > 0);
+}
+
+/**
+ * The rail's groups for a view — the one place the visual order is decided.
+ *
+ * The Pinned rail is a shelf, not a timeline: every row is pinned by
+ * definition, so date grouping would only ever produce one meaningless bucket
+ * per day. It gets a single header — which also carries the count, the same as
+ * the Pinned group does over in History.
+ *
+ * This exists outside `EntryList` so the list and the keyboard cannot disagree
+ * about the order rows are drawn in: `railOrder` reads the same function, and
+ * the two drifting apart is what made ↑/↓ jump to rows nowhere near the
+ * selection.
+ */
+export function railGroups(
+  items: ClipListItem[],
+  view: HistoryView,
+): DateGroup<ClipListItem>[] {
+  if (view === "pinned") return items.length ? [{ label: "Pinned", items }] : [];
+  return groupByDate(items);
+}
+
+/**
+ * The rail's visual order, flattened back into a list.
+ *
+ * `items` arrives in *match* order — substring hits first, then Fuse's
+ * relevance scores — which is not what the user sees once rows are bucketed by
+ * date, and not what a search in History even means: `searchPool` keeps pool
+ * order so pinned hits file under "Pinned" on top. Anything that steps to a
+ * neighbour by index has to do it here rather than over `items`.
+ */
+export function railOrder(
+  items: ClipListItem[],
+  view: HistoryView,
+): ClipListItem[] {
+  return railGroups(items, view).flatMap((group) => group.items);
 }
 
 /** Truncates the tail of a long URL so rows stay on one line. */
